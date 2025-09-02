@@ -1,0 +1,7 @@
+li_at_cookie.txt
+linkedin_cookies.pkl
+search_results.html
+outputs/*
+.idea/*
+venv/*
+__pycache__/*
