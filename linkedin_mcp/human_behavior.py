@@ -121,7 +121,6 @@ class HumanBehavior:
         self.human_delay(0.2, 0.6)
         
     def simulate_reading_behavior(self, min_time=1, max_time=3):
-        print("simulate_reading_behavior")
         reading_time = random.uniform(min_time, max_time)
         start_time = time.time()
         

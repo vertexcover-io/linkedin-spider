@@ -27,6 +27,10 @@ class ProfileScraper:
         try:
             self.driver.get(profile_url)
             
+            if not self._wait_for_profile_page():
+                print(f"❌ Failed to load profile page: {profile_url}")
+                return None
+            
             self.human_behavior.human_delay(1, 2)
             self.human_behavior.simulate_reading_behavior(1, 3)
             
@@ -37,7 +41,7 @@ class ProfileScraper:
             
             profile_data['headline'] = self._extract_headline()
             self.human_behavior.human_scroll("down", random.randint(200, 400))
-            self.human_behavior.human_delay(0.5, 1)
+            # self.human_behavior.human_delay(0.5, 1)
             
             profile_data['location'] = self._extract_location()
             
@@ -47,7 +51,7 @@ class ProfileScraper:
             profile_data['about'] = self._extract_about()
             
             self.human_behavior.human_scroll("down", random.randint(200, 400))
-            self.human_behavior.human_delay(0.5, 1)
+            # self.human_behavior.human_delay(0.5, 1)
             
             profile_data['experience'] = self._extract_experience()
             
@@ -97,20 +101,19 @@ class ProfileScraper:
 
     def _extract_headline(self):
         try:
-            headline_selectors = [
-                ".text-body-medium.break-words[data-generated-suggestion-target]",
+            selectors = [
                 ".text-body-medium.break-words",
                 ".artdeco-entity-lockup__subtitle",
                 ".pv-text-details__left-panel .text-body-medium"
             ]
             
-            for selector in headline_selectors:
+            for selector in selectors:
                 try:
-                    headline_element = self.driver.find_element(By.CSS_SELECTOR, selector)
-                    headline_text = headline_element.text.strip()
-                    if headline_text and len(headline_text) > 5 and "at" in headline_text:
-                        self.tracking_handler.wait_for_element_impression(headline_element)
-                        return headline_text
+                    element = self.driver.find_element(By.CSS_SELECTOR, selector)
+                    text = element.text.strip()
+                    if text and len(text) > 5:
+                        self.tracking_handler.wait_for_element_impression(element)
+                        return text
                 except NoSuchElementException:
                     continue
                     
@@ -121,19 +124,19 @@ class ProfileScraper:
             
     def _extract_location(self):
         try:
-            location_selectors = [
+            selectors = [
                 ".text-body-small.inline.t-black--light.break-words",
-                ".ZVupBccScmICpeahdixjbwMyWnohfmssKtcZE .text-body-small",
-                ".pv-text-details__left-panel .text-body-small"
+                ".pv-text-details__left-panel .text-body-small",
+                "[class*='t-black--light'].text-body-small"
             ]
             
-            for selector in location_selectors:
+            for selector in selectors:
                 try:
-                    location_element = self.driver.find_element(By.CSS_SELECTOR, selector)
-                    location_text = location_element.text.strip()
-                    if location_text and ("," in location_text or any(place in location_text.lower() for place in ["india", "usa", "uk", "canada", "remote"])):
-                        self.tracking_handler.wait_for_element_impression(location_element)
-                        return location_text
+                    element = self.driver.find_element(By.CSS_SELECTOR, selector)
+                    text = element.text.strip()
+                    if text:
+                        self.tracking_handler.wait_for_element_impression(element)
+                        return text
                 except NoSuchElementException:
                     continue
                     
@@ -143,61 +146,49 @@ class ProfileScraper:
             return "N/A"
             
     def _extract_about(self):
-        print("_extract_about")
         try:
-            
             about_section = self._find_section_by_heading(['About'])
             if about_section:
-                about_selectors = [
-                    ".IdnWMVUysOalzPUojLvpTmxeXGfnteFWMcNKo.inline-show-more-text--is-collapsed span[aria-hidden='true']",
-                    ".xWvevAsqcYnAlDMCComHNkMiwccwseGUD span[aria-hidden='true']",
+                selectors = [
+                    "[class*='inline-show-more-text'] span[aria-hidden='true']",
                     ".pv-shared-text-with-see-more",
-                    ".inline-show-more-text span[aria-hidden='true']"
+                    ".visually-hidden"
                 ]
-                
-                for selector in about_selectors:
+                for selector in selectors:
                     try:
-                        about_element = about_section.find_element(By.CSS_SELECTOR, selector)
-                        about_text = about_element.text.strip()
-                        if about_text and len(about_text) > 20:
-                            self.tracking_handler.wait_for_element_impression(about_element, 0.5)
-                            return about_text
+                        element = about_section.find_element(By.CSS_SELECTOR, selector)
+                        text = element.text.strip()
+                        if text and (selector != ".visually-hidden" ):
+                            self.tracking_handler.wait_for_element_impression(element, 0.5)
+                            return text
                     except NoSuchElementException:
                         continue
             
-            fallback_selectors = [
-                ".IdnWMVUysOalzPUojLvpTmxeXGfnteFWMcNKo span[aria-hidden='true']",
-                ".xWvevAsqcYnAlDMCComHNkMiwccwseGUD span[aria-hidden='true']",
-                ".pv-shared-text-with-see-more"
-            ]
-            
-            for selector in fallback_selectors:
+            for selector in ["[class*='inline-show-more-text'] span[aria-hidden='true']", ".pv-shared-text-with-see-more"]:
                 try:
-                    about_element = self.driver.find_element(By.CSS_SELECTOR, selector)
-                    about_text = about_element.text.strip()
-                    if about_text and len(about_text) > 20:
-                        self.tracking_handler.wait_for_element_impression(about_element, 0.5)
-                        return about_text
+                    element = self.driver.find_element(By.CSS_SELECTOR, selector)
+                    text = element.text.strip()
+                    if text:
+                        self.tracking_handler.wait_for_element_impression(element, 0.5)
+                        return text
                 except NoSuchElementException:
                     continue
                     
             return "N/A"
                 
         except Exception as e:
-            # print(f"Error extracting about section: {str(e)}")
             return "N/A"
 
     def _extract_experience(self):
         experience_list = []
         
         try:
-            experience_section = self.driver.find_element(By.CSS_SELECTOR, "section[data-view-name='profile-card'] div[id='experience']")
+            experience_section = self._find_section_by_heading(['Experience'])
             if not experience_section:
                 return experience_list
             
-            experience_section_parent = experience_section.find_element(By.XPATH, "./ancestor::section")
-            experience_containers = experience_section_parent.find_elements(
-                By.CSS_SELECTOR, ".artdeco-list__item.OhIkZIVOPVYvyeBOKipHCuUrcVGbjoEik"
+            experience_containers = experience_section.find_elements(
+                By.CSS_SELECTOR, "[data-view-name='profile-component-entity']"
             )
             
             for container in experience_containers[:8]:
@@ -222,9 +213,9 @@ class ProfileScraper:
         
         try:
             title_selectors = [
-                ".display-flex.align-items-center.mr1.hoverable-link-text.t-bold span[aria-hidden='true']",
+                "[class*='hoverable-link-text'].t-bold span[aria-hidden='true']",
                 ".mr1.t-bold span[aria-hidden='true']",
-                ".hoverable-link-text.t-bold span[aria-hidden='true']"
+                ".t-bold span[aria-hidden='true']"
             ]
             
             for selector in title_selectors:
@@ -240,36 +231,31 @@ class ProfileScraper:
             pass
         
         try:
-            company_link = container.find_element(By.CSS_SELECTOR, "a[data-field='experience_company_logo'][href*='/company/']")
+            company_link = container.find_element(By.CSS_SELECTOR, "a[data-field='experience_company_logo']")
             exp_data['company_url'] = company_link.get_attribute('href')
-        except Exception:
-            pass
-        
-        try:
+            
             company_selectors = [
-                ".t-14.t-normal span[aria-hidden='true']"
+                "a[data-field='experience_company_logo'] span[aria-hidden='true']",
+                "[class*='hoverable-link-text'] span[aria-hidden='true']"
             ]
             
-            company_elements = container.find_elements(By.CSS_SELECTOR, ".t-14.t-normal span[aria-hidden='true']")
-            for element in company_elements:
-                company_text = element.text.strip()
-                if (company_text and 
-                    len(company_text) > 2 and 
-                    not "·" in company_text and
-                    not "Full-time" in company_text and
-                    not "Part-time" in company_text and
-                    not "Contract" in company_text and
-                    not any(x in company_text.lower() for x in ['present', 'mos', 'yrs', '2019', '2020', '2021', '2022', '2023', '2024', '2025'])):
-                    exp_data['company'] = company_text
-                    break
+            for selector in company_selectors:
+                try:
+                    company_element = container.find_element(By.CSS_SELECTOR, selector)
+                    company_text = company_element.text.strip()
+                    if company_text and len(company_text) > 2:
+                        exp_data['company'] = company_text
+                        break
+                except Exception:
+                    continue
         except Exception:
             pass
         
         try:
             duration_selectors = [
-                ".t-14.t-normal.t-black--light span[aria-hidden='true']",
-                ".pvs-entity__caption-wrapper .t-12 span[aria-hidden='true']",
-                ".t-12.t-normal span[aria-hidden='true']"
+                ".t-14.t-normal span[aria-hidden='true']",
+                ".pvs-entity__caption-wrapper span[aria-hidden='true']",
+                "[class*='t-black--light'] span[aria-hidden='true']"
             ]
             
             for selector in duration_selectors:
@@ -278,9 +264,7 @@ class ProfileScraper:
                     for element in duration_elements:
                         duration_text = element.text.strip()
                         if (duration_text and 
-                            ('·' in duration_text or 'present' in duration_text.lower()) and 
-                            (any(x in duration_text.lower() for x in ['mos', 'yrs', 'present', 'month', 'year']) or 
-                             any(month in duration_text.lower() for month in ['jan', 'feb', 'mar', 'apr', 'may', 'jun', 'jul', 'aug', 'sep', 'oct', 'nov', 'dec']))):
+                            any(x in duration_text.lower() for x in ['present', 'mos', 'yrs', 'month', 'year', 'jan', 'feb', 'mar', 'apr', 'may', 'jun', 'jul', 'aug', 'sep', 'oct', 'nov', 'dec'])):
                             exp_data['duration'] = duration_text
                             break
                     if exp_data['duration'] != "N/A":
@@ -291,30 +275,39 @@ class ProfileScraper:
             pass
         
         try:
-            location_elements = container.find_elements(By.CSS_SELECTOR, ".t-14.t-normal.t-black--light span[aria-hidden='true']")
-            for element in location_elements:
-                location_text = element.text.strip()
-                if (location_text and 
-                    ("·" in location_text or any(keyword in location_text for keyword in ["On-site", "Remote", "Hybrid", "India", "USA", "UK"]))
-                    and not any(word in location_text for word in ["mos", "yrs", "Present", "Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"])):
-                    exp_data['location'] = location_text
-                    break
+            location_selectors = [
+                ".pvs-entity__caption-wrapper span[aria-hidden='true']",
+                "[class*='t-black--light'] span[aria-hidden='true']"
+            ]
+            
+            for selector in location_selectors:
+                try:
+                    location_elements = container.find_elements(By.CSS_SELECTOR, selector)
+                    for element in location_elements:
+                        location_text = element.text.strip()
+                        if (location_text and 
+                            any(keyword in location_text for keyword in ["On-site", "Remote", "Hybrid", "India", "USA", "UK"]) and
+                            not any(word in location_text.lower() for word in ["mos", "yrs", "present", "jan", "feb", "mar", "apr", "may", "jun", "jul", "aug", "sep", "oct", "nov", "dec"])):
+                            exp_data['location'] = location_text
+                            break
+                    if exp_data['location'] != "N/A":
+                        break
+                except Exception:
+                    continue
         except Exception:
             pass
-        
         return exp_data
     
     def _extract_education(self):
         education_list = []
         
         try:
-            education_section = self.driver.find_element(By.CSS_SELECTOR, "section[data-view-name='profile-card'] div[id='education']")
+            education_section = self._find_section_by_heading(['Education'])
             if not education_section:
                 return education_list
             
-            education_section_parent = education_section.find_element(By.XPATH, "./ancestor::section")
-            education_containers = education_section_parent.find_elements(
-                By.CSS_SELECTOR, ".artdeco-list__item.OhIkZIVOPVYvyeBOKipHCuUrcVGbjoEik"
+            education_containers = education_section.find_elements(
+                By.CSS_SELECTOR, "[data-view-name='profile-component-entity']"
             )
             
             for container in education_containers[:5]:
@@ -338,40 +331,92 @@ class ProfileScraper:
         edu_data = {"school": "N/A", "degree": "N/A", "field_of_study": "N/A", "duration": "N/A", "grade": "N/A"}
         
         try:
-            school_element = container.find_element(By.CSS_SELECTOR, ".display-flex.align-items-center.mr1.hoverable-link-text.t-bold span[aria-hidden='true']")
-            school_text = school_element.text.strip()
-            if school_text and len(school_text) > 5:
-                edu_data['school'] = school_text
+            school_selectors = [
+                "[class*='hoverable-link-text'].t-bold span[aria-hidden='true']",
+                ".t-bold span[aria-hidden='true']"
+            ]
+            
+            for selector in school_selectors:
+                try:
+                    school_element = container.find_element(By.CSS_SELECTOR, selector)
+                    school_text = school_element.text.strip()
+                    if school_text and len(school_text) > 2:
+                        edu_data['school'] = school_text
+                        break
+                except Exception:
+                    continue
         except Exception:
             pass
         
         try:
-            degree_elements = container.find_elements(By.CSS_SELECTOR, ".t-14.t-normal span[aria-hidden='true']")
-            for element in degree_elements:
-                degree_text = element.text.strip()
-                if (degree_text and 
-                    len(degree_text) > 5 and 
-                    ("Bachelor" in degree_text or "Master" in degree_text or "BTech" in degree_text or "MTech" in degree_text or "PhD" in degree_text or "Diploma" in degree_text)):
-                    if ',' in degree_text:
-                        parts = degree_text.split(',')
-                        edu_data['degree'] = parts[0].strip()
-                        if len(parts) > 1:
-                            edu_data['field_of_study'] = parts[1].strip()
-                    else:
-                        edu_data['degree'] = degree_text
-                    break
+            degree_selectors = [
+                ".t-14.t-normal span[aria-hidden='true']",
+                "[class*='t-normal'] span[aria-hidden='true']"
+            ]
+            
+            for selector in degree_selectors:
+                try:
+                    degree_elements = container.find_elements(By.CSS_SELECTOR, selector)
+                    for element in degree_elements:
+                        degree_text = element.text.strip()
+                        if (degree_text and len(degree_text) > 3 and 
+                            any(term in degree_text.lower() for term in ['bachelor', 'master', 'phd', 'doctor', 'm.tech', 'b.tech', 'm.sc', 'b.sc', 'diploma', 'degree'])):
+                            if ',' in degree_text:
+                                parts = degree_text.split(',', 1)
+                                edu_data['degree'] = parts[0].strip()
+                                if len(parts) > 1:
+                                    edu_data['field_of_study'] = parts[1].strip()
+                            else:
+                                edu_data['degree'] = degree_text
+                            break
+                    if edu_data['degree'] != "N/A":
+                        break
+                except Exception:
+                    continue
         except Exception:
             pass
         
         try:
-            duration_elements = container.find_elements(By.CSS_SELECTOR, ".pvs-entity__caption-wrapper span[aria-hidden='true']")
-            for element in duration_elements:
-                duration_text = element.text.strip()
-                if (duration_text and 
-                    ("201" in duration_text or "202" in duration_text) and 
-                    (" - " in duration_text or "to" in duration_text.lower())):
-                    edu_data['duration'] = duration_text
-                    break
+            duration_selectors = [
+                ".pvs-entity__caption-wrapper span[aria-hidden='true']",
+                "[class*='t-black--light'] span[aria-hidden='true']"
+            ]
+            
+            for selector in duration_selectors:
+                try:
+                    duration_elements = container.find_elements(By.CSS_SELECTOR, selector)
+                    for element in duration_elements:
+                        duration_text = element.text.strip()
+                        if (duration_text and 
+                            any(year in duration_text for year in ['201', '202', '200']) and 
+                            ('-' in duration_text or 'to' in duration_text.lower())):
+                            edu_data['duration'] = duration_text
+                            break
+                    if edu_data['duration'] != "N/A":
+                        break
+                except Exception:
+                    continue
+        except Exception:
+            pass
+        
+        try:
+            grade_selectors = [
+                "[class*='inline-show-more-text'] span[aria-hidden='true']",
+                ".t-14.t-normal.t-black span[aria-hidden='true']"
+            ]
+            
+            for selector in grade_selectors:
+                try:
+                    grade_elements = container.find_elements(By.CSS_SELECTOR, selector)
+                    for element in grade_elements:
+                        grade_text = element.text.strip()
+                        if grade_text and ('grade:' in grade_text.lower() or '/' in grade_text or 'gpa' in grade_text.lower()):
+                            edu_data['grade'] = grade_text
+                            break
+                    if edu_data['grade'] != "N/A":
+                        break
+                except Exception:
+                    continue
         except Exception:
             pass
         
@@ -416,3 +461,43 @@ class ProfileScraper:
             pass
             
         return None
+        
+    def _wait_for_profile_page(self):
+        try:
+            self.wait.until(lambda driver: driver.current_url != "about:blank")
+            
+            current_url = self.driver.current_url
+            if not ("linkedin.com/in/" in current_url):
+                return False
+            
+            profile_indicators = [
+                "h1[data-test-id='profile-name']",
+                "h1.text-heading-xlarge",
+                ".pv-text-details__left-panel h1",
+                "h1.top-card-layout__title",
+                ".artdeco-entity-lockup__title",
+                "main[role='main']",
+                ".pv-profile-section"
+            ]
+            
+            for selector in profile_indicators:
+                try:
+                    elements = self.driver.find_elements(By.CSS_SELECTOR, selector)
+                    if elements and elements[0].is_displayed():
+                        return True
+                except Exception:
+                    continue
+            
+            page_source = self.driver.page_source.lower()
+            profile_keywords = [
+                "profile",
+                "experience",
+                "education",
+                "about",
+                "contact info"
+            ]
+            
+            return any(keyword in page_source for keyword in profile_keywords)
+            
+        except Exception:
+            return False

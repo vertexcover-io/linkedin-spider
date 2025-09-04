@@ -19,6 +19,7 @@ classifiers = [
 dependencies = [
     "requests>=2.32.5",
     "selenium>=4.35.0",
+    "cyclopts>=2.0.0",
 ]
 
 [project.urls]
