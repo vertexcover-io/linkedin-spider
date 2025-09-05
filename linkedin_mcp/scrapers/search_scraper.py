@@ -84,11 +84,11 @@ class SearchScraper:
                     break
                 scroll_attempts += 1
 
-            print(f"✅ Extracted {len(profile_data)} profiles")
+            print(f"[SUCCESS] Extracted {len(profile_data)} profiles")
             return profile_data
 
         except Exception as e:
-            print(f"❌ Error during search: {str(e)}")
+            print(f"[ERROR] Error during search: {str(e)}")
             return []
 
     def extract_headless_data(self):

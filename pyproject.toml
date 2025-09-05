@@ -1,7 +1,7 @@
 [project]
 name = "linkedin-mcp"
-version = "0.0.1"
-description = "Linkedin MCP"
+version = "1.0.0"
+description = "LinkedIn MCP Server for Profile Scraping"
 authors = [{ name = "Aman Kumar Singh", email = "amankumarsingh7702@gmail.com" }]
 readme = "README.md"
 keywords = ['python']
@@ -19,9 +19,9 @@ classifiers = [
 dependencies = [
     "requests>=2.32.5",
     "selenium>=4.35.0",
-    "cyclopts>=2.0.0",
     "psutil>=5.9.0",
     "python-dotenv>=1.0.0",
+    "mcp>=1.0.0",
 ]
 
 [project.urls]
@@ -29,7 +29,7 @@ dependencies = [
 Repository = "https://github.com/amankumarsingh77/linkedin-mcp"
 
 [project.scripts]
-linkedin_mcp = "linkedin_mcp.cli.main:app"
+linkedin_mcp = "linkedin_mcp.server:cli_main"
 
 [tool.uv]
 dev-dependencies = [

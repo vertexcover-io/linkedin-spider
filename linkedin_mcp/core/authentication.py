@@ -22,7 +22,7 @@ class LinkedInAuth:
             if self.login_with_credentials():
                 return True
                 
-        print("❌ All authentication methods failed!")
+        print("[ERROR] All authentication methods failed!")
         raise Exception("Authentication failed")
         
         
@@ -53,18 +53,18 @@ class LinkedInAuth:
             
             if "feed" in current_url or "mynetwork" in current_url:
                 if self.verify_feed_access():
-                    print("✅ Login successful!")
+                    print("[SUCCESS] Login successful!")
                     return True
             elif "challenge" in current_url or self.is_challenge_present():
                 return self.handle_challenge()
             elif self.check_login_errors():
                 return False
             else:
-                print(f"❌ Unexpected page after login: {current_url}")
+                print(f"[ERROR] Unexpected page after login: {current_url}")
                 return False
                 
         except Exception as e:
-            print(f"❌ Error during login: {str(e)}")
+            print(f"[ERROR] Error during login: {str(e)}")
             return False
             
     def authenticate_with_cookie(self):
@@ -91,10 +91,10 @@ class LinkedInAuth:
             return self._wait_for_feed_or_handle_challenge()
             
         except TimeoutException:
-            print("❌ Cookie authentication failed. Cookie might be expired or invalid.")
+            print("[ERROR] Cookie authentication failed. Cookie might be expired or invalid.")
             return False
         except Exception as e:
-            print(f"❌ Error during cookie authentication: {str(e)}")
+            print(f"[ERROR] Error during cookie authentication: {str(e)}")
             return False
             
     def _wait_for_feed_or_handle_challenge(self):
@@ -103,7 +103,7 @@ class LinkedInAuth:
         
         while attempt < max_attempts:
             attempt += 1
-            print(f"🔄 Attempting to reach feed page (attempt {attempt}/{max_attempts})...")
+            print(f"[INFO] Attempting to reach feed page (attempt {attempt}/{max_attempts})...")
             
             self.driver.get("https://www.linkedin.com/feed/")
             self.human_behavior.human_delay(3, 6)
@@ -122,10 +122,10 @@ class LinkedInAuth:
                 try:
                     self.wait.until(EC.presence_of_element_located((By.TAG_NAME, "main")))
                     if self.verify_feed_access():
-                        print("✅ Successfully reached feed page!")
+                        print("[SUCCESS] Successfully reached feed page!")
                         return True
                 except TimeoutException:
-                    print("⏳ Feed page elements not loaded yet, checking for challenges...")
+                    print("[WAIT] Feed page elements not loaded yet, checking for challenges...")
                     if self.is_challenge_present():
                         print("🔒 Challenge detected during feed loading!")
                         if self.handle_challenge():
@@ -134,13 +134,13 @@ class LinkedInAuth:
                             continue
             
             if "login" in current_url or "signin" in current_url:
-                print("⚠️ Redirected to login page - authentication may have failed")
+                print("[WARNING] Redirected to login page - authentication may have failed")
                 return False
                 
-            print(f"⚠️ Not on feed page yet. Current URL: {current_url}")
+            print(f"[WARNING] Not on feed page yet. Current URL: {current_url}")
             self.human_behavior.human_delay(2, 4)
         
-        print("❌ Failed to reach feed page after multiple attempts")
+        print("[ERROR] Failed to reach feed page after multiple attempts")
         return False
 
     def is_challenge_present(self):
@@ -164,7 +164,7 @@ class LinkedInAuth:
         
         while attempt < max_challenge_attempts:
             attempt += 1
-            print(f"\n⏳ Challenge attempt {attempt}/{max_challenge_attempts}")
+            print(f"\n[WAIT] Challenge attempt {attempt}/{max_challenge_attempts}")
             print("After completing the challenge, press ENTER to continue...")
             
             input()
@@ -176,38 +176,38 @@ class LinkedInAuth:
             print(f"Current URL: {current_url}")
             
             if "challenge" in current_url or self.is_challenge_present():
-                print("⚠️ Challenge still present, please try again...")
+                print("[WARNING] Challenge still present, please try again...")
                 continue
             
             if "feed" in current_url or "mynetwork" in current_url:
                 try:
                     self.wait.until(EC.presence_of_element_located((By.TAG_NAME, "main")))
                     if self.verify_feed_access():
-                        print("✅ Challenge completed successfully!")
+                        print("[SUCCESS] Challenge completed successfully!")
                         return True
                 except TimeoutException:
-                    print("⏳ Feed page loading, checking again...")
+                    print("[WAIT] Feed page loading, checking again...")
                     self.human_behavior.human_delay(2, 4)
                     if self.verify_feed_access():
-                        print("✅ Challenge completed successfully!")
+                        print("[SUCCESS] Challenge completed successfully!")
                         return True
             
-            print("🔄 Navigating to feed page to verify authentication...")
+            print("[INFO] Navigating to feed page to verify authentication...")
             self.driver.get("https://www.linkedin.com/feed/")
             self.human_behavior.human_delay(3, 6)
             
             try:
                 self.wait.until(EC.presence_of_element_located((By.TAG_NAME, "main")))
                 if self.verify_feed_access():
-                    print("✅ Authentication verified after challenge!")
+                    print("[SUCCESS] Authentication verified after challenge!")
                     return True
             except TimeoutException:
-                print("⏳ Feed page not loading properly, checking for additional challenges...")
+                print("[WAIT] Feed page not loading properly, checking for additional challenges...")
                 if self.is_challenge_present():
                     print("🔒 Additional challenge detected!")
                     continue
         
-        print("❌ Failed to complete challenge after multiple attempts")
+        print("[ERROR] Failed to complete challenge after multiple attempts")
         return False
                 
     def check_login_errors(self):
@@ -223,7 +223,7 @@ class LinkedInAuth:
                 try:
                     error_element = self.driver.find_element(By.CSS_SELECTOR, selector)
                     if error_element.is_displayed():
-                        print(f"❌ Login error: {error_element.text}")
+                        print(f"[ERROR] Login error: {error_element.text}")
                         return True
                 except NoSuchElementException:
                     continue
@@ -332,7 +332,7 @@ class LinkedInAuth:
                             self.human_behavior.human_delay(2, 4)
                             
                             if self.verify_feed_access():
-                                print("✅ Profile selected successfully!")
+                                print("[SUCCESS] Profile selected successfully!")
                                 return True
                             else:
                                 self.driver.get("https://www.linkedin.com/feed/")
@@ -358,7 +358,7 @@ class LinkedInAuth:
                             self.human_behavior.human_delay(2, 4)
                             
                             if self.verify_feed_access():
-                                print("✅ Profile selected successfully!")
+                                print("[SUCCESS] Profile selected successfully!")
                                 return True
                             else:
                                 self.driver.get("https://www.linkedin.com/feed/")
@@ -367,11 +367,11 @@ class LinkedInAuth:
                 except Exception:
                     continue
             
-            print("⚠️ Could not find profile selector, trying direct navigation...")
+            print("[WARNING] Could not find profile selector, trying direct navigation...")
             self.driver.get("https://www.linkedin.com/feed/")
             self.human_behavior.human_delay(2, 4)
             return self.verify_feed_access()
             
         except Exception as e:
-            print(f"❌ Error handling welcome back page: {e}")
+            print(f"[ERROR] Error handling welcome back page: {e}")
             return False

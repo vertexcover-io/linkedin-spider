@@ -19,7 +19,7 @@ class ProfileScraper:
     
     def scrape_profile(self, profile_url):
         if not self._is_valid_linkedin_url(profile_url):
-            print(f"❌ Invalid profile URL: {profile_url}")
+            print(f"[ERROR] Invalid profile URL: {profile_url}")
             return None
             
         print(f"Scraping profile: {profile_url}")
@@ -28,7 +28,7 @@ class ProfileScraper:
             self.driver.get(profile_url)
             
             if not self._wait_for_profile_page():
-                print(f"❌ Failed to load profile page: {profile_url}")
+                print(f"[ERROR] Failed to load profile page: {profile_url}")
                 return None
             
             self.human_behavior.human_delay(1, 2)
@@ -63,7 +63,7 @@ class ProfileScraper:
             
             self.human_behavior.simulate_reading_behavior(1, 2)
             
-            print(f"✅ Successfully scraped profile: {profile_data.get('name', 'Unknown')}")
+            print(f"[SUCCESS] Successfully scraped profile: {profile_data.get('name', 'Unknown')}")
             print(f"   Headline: {profile_data.get('headline', 'N/A')}")
             print(f"   Location: {profile_data.get('location', 'N/A')}")
             print(f"   Experience items: {len(profile_data.get('experience', []))}")
@@ -72,7 +72,7 @@ class ProfileScraper:
             return profile_data
             
         except Exception as e:
-            print(f"❌ Error scraping profile {profile_url}: {str(e)}")
+            print(f"[ERROR] Error scraping profile {profile_url}: {str(e)}")
             return None
 
     def _extract_name(self):

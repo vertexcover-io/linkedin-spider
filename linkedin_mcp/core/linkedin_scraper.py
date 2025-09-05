@@ -50,10 +50,10 @@ class LinkedInScraper:
             print("No profile URLs found, but checking for anonymous data...")
             anonymous_data = self.extract_headless_data()
             if anonymous_data:
-                print(f"✅ Extracted {len(anonymous_data)} anonymous profiles from search results")
+                print(f"[SUCCESS] Extracted {len(anonymous_data)} anonymous profiles from search results")
                 return anonymous_data
             else:
-                print("❌ No data could be extracted from search results")
+                print("[ERROR] No data could be extracted from search results")
                 return []
                 
         profiles_data = []
@@ -63,7 +63,7 @@ class LinkedInScraper:
             
             if i > 1:
                 delay = random.uniform(2, 5)
-                print(f"⏳ Waiting {delay:.1f} seconds before next profile (human behavior)...")
+                print(f"[WAIT] Waiting {delay:.1f} seconds before next profile (human behavior)...")
                 time.sleep(delay)
                 
             profile_url = profile_info.get('profile_url')
@@ -73,7 +73,7 @@ class LinkedInScraper:
                 if profile_data:
                     profiles_data.append(profile_data)
             else:
-                print(f"⚠️ Skipping profile with invalid URL: {profile_info.get('name', 'Unknown')}")
+                print(f"[WARNING] Skipping profile with invalid URL: {profile_info.get('name', 'Unknown')}")
                 if profile_info.get('name') != 'N/A' or profile_info.get('headline') != 'N/A':
                     limited_data = {
                         'name': profile_info.get('name', 'N/A'),
@@ -86,7 +86,7 @@ class LinkedInScraper:
                     profiles_data.append(limited_data)
                 
             if random.random() < 0.2 and i < len(profile_urls):
-                print("🔄 Simulating tab management behavior...")
+                print("[INFO] Simulating tab management behavior...")
                 self.driver.execute_script("window.blur();")
                 self.human_behavior.human_delay(1, 3)
                 self.driver.execute_script("window.focus();")
@@ -96,10 +96,17 @@ class LinkedInScraper:
     def save_to_json(self, data, filename):
         with open(filename, 'w', encoding='utf-8') as f:
             json.dump(data, f, indent=2, ensure_ascii=False)
-        print(f"✅ Data saved to {filename}")
+        print(f"[SUCCESS] Data saved to {filename}")
         
     def close(self):
         if self.driver_manager:
             self.human_behavior.human_delay(1, 2)
             self.driver_manager.close()
             print("Browser closed.")
+    
+    def keep_alive(self):
+        try:
+            self.driver.execute_script("return window.location.href;")
+            return True
+        except:
+            return False

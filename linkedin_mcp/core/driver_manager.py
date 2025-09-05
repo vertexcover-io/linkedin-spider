@@ -174,6 +174,11 @@ class DriverManager:
         chrome_options.add_experimental_option("detach", True)
         chrome_options.add_experimental_option("prefs", ScraperConfig.CHROME_PREFS)
         
+        chrome_options.add_argument("--keep-alive-for-test")
+        chrome_options.add_argument("--disable-background-timer-throttling")
+        chrome_options.add_argument("--disable-backgrounding-occluded-windows")
+        chrome_options.add_argument("--disable-renderer-backgrounding")
+        
         try:
             driver_path = self._ensure_chromedriver()
             if driver_path:
