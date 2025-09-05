@@ -10,7 +10,7 @@ import requests
 import zipfile
 import shutil
 import subprocess
-from config import ScraperConfig
+from .config import ScraperConfig
 
 class DriverManager:
     def __init__(self, headless=False, stealth_mode=True):

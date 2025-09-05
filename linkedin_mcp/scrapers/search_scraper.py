@@ -4,7 +4,7 @@ import urllib.parse
 from selenium.webdriver.common.by import By
 from selenium.webdriver.support import expected_conditions as EC
 from selenium.common.exceptions import TimeoutException
-from search_filters import SearchFilters, build_search_url
+from .search_filters import SearchFilters, build_search_url
 
 class SearchScraper:
     def __init__(self, driver, wait, human_behavior, tracking_handler):

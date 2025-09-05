@@ -2,7 +2,7 @@ import time
 import random
 from selenium.webdriver.common.keys import Keys
 from selenium.webdriver.support import expected_conditions as EC
-from config import ScraperConfig
+from ..core.config import ScraperConfig
 
 class HumanBehavior:
     def __init__(self, driver, wait, actions):

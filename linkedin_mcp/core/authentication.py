@@ -1,25 +1,19 @@
 import time
 import os
-import pickle
 from selenium.webdriver.common.by import By
 from selenium.webdriver.support import expected_conditions as EC
 from selenium.common.exceptions import TimeoutException, NoSuchElementException
 
 class LinkedInAuth:
-    def __init__(self, driver, wait, human_behavior, email=None, password=None, li_at_cookie=None, cookie_file="linkedin_cookies.pkl"):
+    def __init__(self, driver, wait, human_behavior, email=None, password=None, li_at_cookie=None):
         self.driver = driver
         self.wait = wait
         self.human_behavior = human_behavior
         self.email = email
         self.password = password
         self.li_at_cookie = li_at_cookie
-        self.cookie_file = cookie_file
         
     def authenticate(self):
-        if self.load_cookies():
-            print("✅ Authentication successful using saved cookies!")
-            return True
-                
         if self.li_at_cookie:
             if self.authenticate_with_cookie():
                 return True
@@ -31,47 +25,6 @@ class LinkedInAuth:
         print("❌ All authentication methods failed!")
         raise Exception("Authentication failed")
         
-    def save_cookies(self):
-        cookies = self.driver.get_cookies()
-        with open(self.cookie_file, 'wb') as file:
-            pickle.dump(cookies, file)
-        print(f"✅ Cookies saved to {self.cookie_file}")
-        
-        for cookie in cookies:
-            if cookie['name'] == 'li_at':
-                print(f"🔑 li_at cookie value: {cookie['value']}")
-                with open('li_at_cookie.txt', 'w') as f:
-                    f.write(cookie['value'])
-                print("✅ li_at cookie saved to li_at_cookie.txt")
-                break
-                
-    def load_cookies(self):
-        if os.path.exists(self.cookie_file):
-            try:
-                with open(self.cookie_file, 'rb') as file:
-                    cookies = pickle.load(file)
-                    
-                self.driver.get("https://www.linkedin.com")
-                time.sleep(2)
-                
-                for cookie in cookies:
-                    try:
-                        self.driver.add_cookie(cookie)
-                    except Exception as e:
-                        print(f"Warning: Could not add cookie {cookie.get('name', 'unknown')}: {e}")
-                        
-                self.driver.refresh()
-                time.sleep(3)
-                
-                if self._handle_welcome_back_page():
-                    print("✅ Cookies loaded from file")
-                    return self._wait_for_feed_or_handle_challenge()
-                else:
-                    return False
-            except Exception as e:
-                print(f"❌ Error loading cookies: {e}")
-                return False
-        return False
         
     def login_with_credentials(self):
         print("Logging in with email and password...")
@@ -101,7 +54,6 @@ class LinkedInAuth:
             if "feed" in current_url or "mynetwork" in current_url:
                 if self.verify_feed_access():
                     print("✅ Login successful!")
-                    self.save_cookies()
                     return True
             elif "challenge" in current_url or self.is_challenge_present():
                 return self.handle_challenge()
@@ -232,14 +184,12 @@ class LinkedInAuth:
                     self.wait.until(EC.presence_of_element_located((By.TAG_NAME, "main")))
                     if self.verify_feed_access():
                         print("✅ Challenge completed successfully!")
-                        self.save_cookies()
                         return True
                 except TimeoutException:
                     print("⏳ Feed page loading, checking again...")
                     self.human_behavior.human_delay(2, 4)
                     if self.verify_feed_access():
                         print("✅ Challenge completed successfully!")
-                        self.save_cookies()
                         return True
             
             print("🔄 Navigating to feed page to verify authentication...")
@@ -250,7 +200,6 @@ class LinkedInAuth:
                 self.wait.until(EC.presence_of_element_located((By.TAG_NAME, "main")))
                 if self.verify_feed_access():
                     print("✅ Authentication verified after challenge!")
-                    self.save_cookies()
                     return True
             except TimeoutException:
                 print("⏳ Feed page not loading properly, checking for additional challenges...")

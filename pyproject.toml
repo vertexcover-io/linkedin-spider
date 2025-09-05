@@ -20,11 +20,16 @@ dependencies = [
     "requests>=2.32.5",
     "selenium>=4.35.0",
     "cyclopts>=2.0.0",
+    "psutil>=5.9.0",
+    "python-dotenv>=1.0.0",
 ]
 
 [project.urls]
 
 Repository = "https://github.com/amankumarsingh77/linkedin-mcp"
+
+[project.scripts]
+linkedin_mcp = "linkedin_mcp.cli.main:app"
 
 [tool.uv]
 dev-dependencies = [

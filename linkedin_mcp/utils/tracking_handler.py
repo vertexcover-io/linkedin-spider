@@ -3,7 +3,7 @@ import random
 from selenium.webdriver.common.by import By
 from selenium.webdriver.support import expected_conditions as EC
 from selenium.common.exceptions import TimeoutException, NoSuchElementException
-from csp_bypass import CSPBypassHandler
+from .csp_bypass import CSPBypassHandler
 
 class LinkedInTrackingHandler:
     def __init__(self, driver, wait, actions):

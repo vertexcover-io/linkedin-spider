@@ -1,20 +1,19 @@
 import json
 import time
 import random
-from driver_manager import DriverManager
-from authentication import LinkedInAuth
-from human_behavior import HumanBehavior
-from tracking_handler import LinkedInTrackingHandler
-from profile_scraper import ProfileScraper
-from search_scraper import SearchScraper
+from .driver_manager import DriverManager
+from .authentication import LinkedInAuth
+from ..utils.human_behavior import HumanBehavior
+from ..utils.tracking_handler import LinkedInTrackingHandler
+from ..scrapers.profile_scraper import ProfileScraper
+from ..scrapers.search_scraper import SearchScraper
 
 class LinkedInScraper:
     def __init__(self, email=None, password=None, li_at_cookie=None, headless=False,
-                 cookie_file="linkedin_cookies.pkl", stealth_mode=True):
+                 stealth_mode=True):
         self.email = email
         self.password = password
         self.li_at_cookie = li_at_cookie
-        self.cookie_file = cookie_file
         
         self.driver_manager = DriverManager(headless, stealth_mode)
         self.driver = self.driver_manager.setup_driver()
@@ -24,7 +23,7 @@ class LinkedInScraper:
         self.human_behavior = HumanBehavior(self.driver, self.wait, self.actions)
         self.tracking_handler = LinkedInTrackingHandler(self.driver, self.wait, self.actions)
         self.auth = LinkedInAuth(self.driver, self.wait, self.human_behavior, 
-                                email, password, li_at_cookie, cookie_file)
+                                email, password, li_at_cookie)
         
         self.profile_scraper = ProfileScraper(self.driver, self.wait, self.human_behavior, self.tracking_handler)
         self.search_scraper = SearchScraper(self.driver, self.wait, self.human_behavior, self.tracking_handler)
