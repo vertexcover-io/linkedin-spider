@@ -1,0 +1,12 @@
+{
+    "mcpServers": {
+      "linkedin-scraper": {
+        "command": "uv",
+        "args": ["run", "linkedin_mcp"],
+        "cwd": "YOUR_PROJECT_PATH",
+        "env": {
+          "cookie": "${LINKEDIN_COOKIE}"
+        }
+      }
+    }
+  }

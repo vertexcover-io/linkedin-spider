@@ -1,81 +1,276 @@
-# linkedin-mcp
+# LinkedIn MCP Server
 
-<p align="center">Linkedin MCP</p>
+A high-performance LinkedIn scraper built as a Model Context Protocol (MCP) server with advanced anti-detection capabilities and human-like behavior simulation.
 
----
+## Features
 
-<p align="center">
-    <a href="https://img.shields.io/github/v/release/amankumarsingh77/linkedin-mcp">
-        <img src="https://img.shields.io/github/v/release/amankumarsingh77/linkedin-mcp" alt="linkedin-mcp version">
-    </a>
-    <a href="https://github.com/amankumarsingh77/linkedin-mcp/actions/workflows/main.yml">
-        <img src="https://github.com/amankumarsingh77/linkedin-mcp/actions/workflows/main.yml/badge.svg" alt="linkedin-mcp CI status">
-    </a>
-    <a href="https://codecov.io/gh/amankumarsingh77/linkedin-mcp">
-        <img src="https://codecov.io/gh/amankumarsingh77/linkedin-mcp/branch/main/graph/badge.svg" alt="linkedin-mcp codecov">
-    </a>
-    <a href="https://img.shields.io/github/license/amankumarsingh77/linkedin-mcp">
-        <img src="https://img.shields.io/github/license/amankumarsingh77/linkedin-mcp" alt="linkedin-mcp license">
-    </a>
-</p>
+- **Profile Scraping**: Extract comprehensive LinkedIn profile data including experience, education, skills, and contact information
+- **Advanced Search**: Search profiles with location and industry filters, automatic pagination support
+- **Connection Management**: Scrape incoming and outgoing connection requests with message content
+- **Anti-Detection**: Built-in stealth mode, human behavior simulation, and tracking protection
+- **MCP Integration**: Seamless integration with Claude and other MCP-compatible clients
+- **Session Management**: Persistent browser sessions with automatic recovery
+- **Robust Error Handling**: Comprehensive exception handling and retry mechanisms
 
+## Prerequisites
 
-- **Github repository**: <https://github.com/amankumarsingh77/linkedin-mcp/>
+- Python 3.10 or higher
+- Chrome browser (latest version recommended)
+- LinkedIn account with valid session cookie
 
+## Installation
 
-## Getting started with your project
-
-### 1. Create a New Repository
-
-First, create a repository on GitHub with the same name as this project, and then run the following commands:
-
+1. Clone the repository:
 ```bash
-git init -b main
-git add .
-git commit -m "init commit"
-git remote add origin git@github.com:amankumarsingh77/linkedin-mcp.git
-git push -u origin main
+git clone https://github.com/amankumarsingh77/linkedin-mcp.git
+cd linkedin-mcp
 ```
 
-### 2. Set Up Your Development Environment
-
-Then, install the environment and the pre-commit hooks with
-
+2. Install using uv (recommended):
 ```bash
-make install
+uv sync
 ```
 
-This will also generate your `uv.lock` file
-
-### 3. Run the pre-commit hooks
-
-Initially, the CI/CD pipeline might be failing due to formatting issues. To resolve those run:
-
+Or using pip:
 ```bash
-uv run pre-commit run -a
+pip install -e .
 ```
 
-### 4. Commit the changes
+3. Install ChromeDriver:
+   - Download from [ChromeDriver](https://chromedriver.chromium.org/)
+   - Add to your PATH or place in project directory
 
-Lastly, commit the changes made by the two steps above to your repository.
+## Configuration
 
-```bash
-git add .
-git commit -m 'Fix formatting issues'
-git push origin main
+### MCP Configuration
+
+Add to your MCP configuration file (e.g., `.mcp.json`):
+
+```json
+{
+  "mcpServers": {
+    "linkedin-scraper": {
+      "command": "uv",
+      "args": ["run", "linkedin_mcp"],
+      "cwd": "/path/to/linkedin-scraper",
+      "env": {
+        "cookie": "YOUR_LINKEDIN_LI_AT_COOKIE"
+      }
+    }
+  }
+}
 ```
 
-You are now ready to start development on your project!
-The CI/CD pipeline will be triggered when you open a pull request, merge to main, or when you create a new release.
+### Environment Setup
 
-To finalize the set-up for publishing to PyPI, see [here](https://fpgmaas.github.io/cookiecutter-uv/features/publishing/#set-up-for-pypi).
-For activating the automatic documentation with MkDocs, see [here](https://fpgmaas.github.io/cookiecutter-uv/features/mkdocs/#enabling-the-documentation-on-github).
-To enable the code coverage reports, see [here](https://fpgmaas.github.io/cookiecutter-uv/features/codecov/).
+Create a `.env` file in the project root:
 
-## Releasing a new version
+```env
+LI_AT_COOKIE=your_linkedin_li_at_cookie_here
+HEADLESS=true
+STEALTH_MODE=true
+```
 
+### Obtaining LinkedIn Cookie
 
+1. Log in to LinkedIn in your browser
+2. Open Developer Tools (F12)
+3. Go to Application > Cookies > https://linkedin.com
+4. Copy the value of the `li_at` cookie
+5. Add it to your configuration
 
----
+## Usage
 
-Repository initiated with [fpgmaas/cookiecutter-uv](https://github.com/fpgmaas/cookiecutter-uv).
+### MCP Server
+
+The server provides the following tools:
+
+#### `scrape_profile`
+```json
+{
+  "profile_url": "https://www.linkedin.com/in/username"
+}
+```
+
+#### `search_profiles`
+```json
+{
+  "query": "Software Engineer",
+  "max_results": 10,
+  "location": "San Francisco",
+  "industry": "Technology"
+}
+```
+
+#### `scrape_incoming_connections`
+```json
+{
+  "max_results": 20
+}
+```
+
+#### `scrape_outgoing_connections`
+```json
+{
+  "max_results": 15
+}
+```
+
+#### `get_session_status`
+```json
+{}
+```
+
+#### `reset_session`
+```json
+{}
+```
+
+### Direct Usage
+
+```python
+from linkedin_mcp.core.linkedin_scraper import LinkedInScraper
+
+scraper = LinkedInScraper(li_at_cookie="your_cookie_here")
+
+# Scrape a profile
+profile = scraper.scrape_profile("https://www.linkedin.com/in/username")
+
+# Search profiles
+results = scraper.search_profiles("Software Engineer", max_results=10)
+
+# Get connections
+incoming = scraper.scrape_incoming_connections(max_results=20)
+outgoing = scraper.scrape_outgoing_connections(max_results=15)
+```
+
+## Response Format
+
+### Profile Data
+```json
+{
+  "name": "John Doe",
+  "headline": "Software Engineer at Tech Company",
+  "location": "San Francisco, CA",
+  "profile_url": "https://www.linkedin.com/in/johndoe",
+  "about": "Experienced software engineer...",
+  "experience": [...],
+  "education": [...],
+  "skills": [...],
+  "contact_info": {...}
+}
+```
+
+### Search Results
+```json
+[
+  {
+    "name": "Jane Smith",
+    "headline": "Senior Developer",
+    "location": "New York, NY",
+    "profile_url": "https://www.linkedin.com/in/janesmith",
+    "image_url": "https://..."
+  }
+]
+```
+
+### Connection Data
+```json
+[
+  {
+    "name": "Alice Johnson",
+    "profile_url": "https://www.linkedin.com/in/alicejohnson",
+    "headline": "Product Manager",
+    "time_sent": "2 weeks ago",
+    "message": "Hi Alice, I'd love to connect...",
+    "mutual_connections": "5 mutual connections",
+    "image_url": "https://..."
+  }
+]
+```
+
+## Architecture
+
+```
+linkedin_mcp/
+├── core/                    # Core functionality
+│   ├── linkedin_scraper.py  # Main scraper class
+│   ├── session_manager.py   # Session management
+│   ├── driver_manager.py    # WebDriver setup
+│   └── authentication.py    # LinkedIn authentication
+├── scrapers/                # Specialized scrapers
+│   ├── profile_scraper.py   # Profile data extraction
+│   ├── search_scraper.py    # Search functionality
+│   └── connection_scraper.py # Connection management
+├── utils/                   # Utility modules
+│   ├── human_behavior.py    # Behavior simulation
+│   └── tracking_handler.py  # Anti-detection
+└── server.py               # MCP server implementation
+```
+
+## Anti-Detection Features
+
+- **Stealth Mode**: Bypasses common bot detection mechanisms
+- **Human Behavior**: Randomized delays, mouse movements, and scrolling patterns
+- **User Agent Rotation**: Dynamic user agent switching
+- **Request Throttling**: Intelligent rate limiting
+- **Session Persistence**: Maintains logged-in state across requests
+
+## Rate Limits
+
+- Profile scraping: 1-2 profiles per minute
+- Search operations: 10-20 results per minute
+- Connection requests: 5-10 per minute
+
+## Error Handling
+
+The scraper includes comprehensive error handling for:
+
+- Network timeouts and connection issues
+- LinkedIn rate limiting and blocking
+- Element not found exceptions
+- Session expiration and re-authentication
+- Browser crashes and recovery
+
+## Troubleshooting
+
+### Common Issues
+
+**Session expired**: Update your `li_at` cookie value
+
+**ChromeDriver not found**: Ensure ChromeDriver is installed and in PATH
+
+**Rate limited**: Reduce request frequency and enable stealth mode
+
+**Elements not found**: LinkedIn may have updated their UI - check for updates
+
+### Debugging
+
+Enable debug logging:
+
+```python
+import logging
+logging.basicConfig(level=logging.DEBUG)
+```
+
+## License
+
+MIT License - see [LICENSE](LICENSE) file for details.
+
+## Disclaimer
+
+This tool is for educational and research purposes only. Users are responsible for complying with LinkedIn's Terms of Service and applicable laws. The authors are not responsible for any misuse or violations.
+
+## Contributing
+
+1. Fork the repository
+2. Create a feature branch
+3. Make your changes
+4. Add tests if applicable
+5. Submit a pull request
+
+## Support
+
+For issues and questions:
+- Create an issue on GitHub
+- Check existing documentation and troubleshooting guides

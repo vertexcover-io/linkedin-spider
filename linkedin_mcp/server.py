@@ -82,6 +82,40 @@ async def handle_list_tools() -> list[types.Tool]:
                 "properties": {},
                 "required": []
             }
+        ),
+        types.Tool(
+            name="scrape_incoming_connections",
+            description="Scrape incoming connection requests from LinkedIn",
+            inputSchema={
+                "type": "object",
+                "properties": {
+                    "max_results": {
+                        "type": "integer",
+                        "description": "Maximum number of incoming connections to scrape (default: 10)",
+                        "default": 10,
+                        "minimum": 1,
+                        "maximum": 50
+                    }
+                },
+                "required": []
+            }
+        ),
+        types.Tool(
+            name="scrape_outgoing_connections",
+            description="Scrape outgoing connection requests from LinkedIn",
+            inputSchema={
+                "type": "object",
+                "properties": {
+                    "max_results": {
+                        "type": "integer",
+                        "description": "Maximum number of outgoing connections to scrape (default: 10)",
+                        "default": 10,
+                        "minimum": 1,
+                        "maximum": 50
+                    }
+                },
+                "required": []
+            }
         )
     ]
 
@@ -96,6 +130,10 @@ async def handle_call_tool(name: str, arguments: dict[str, Any] | None) -> list[
             return await get_session_status_tool()
         elif name == "reset_session":
             return await reset_session_tool()
+        elif name == "scrape_incoming_connections":
+            return await scrape_incoming_connections_tool(arguments or {})
+        elif name == "scrape_outgoing_connections":
+            return await scrape_outgoing_connections_tool(arguments or {})
         else:
             raise McpError(-32601, f"Unknown tool: {name}")
     except Exception as e:
@@ -193,6 +231,54 @@ async def reset_session_tool() -> List[types.TextContent]:
             text=f"Error resetting session: {str(e)}"
         )]
 
+async def scrape_incoming_connections_tool(arguments: Dict[str, Any]) -> List[types.TextContent]:
+    max_results = arguments.get("max_results", 10)
+    
+    try:
+        scraper = session_manager.get_scraper()
+        results = scraper.scrape_incoming_connections(max_results)
+        
+        if results:
+            return [types.TextContent(
+                type="text",
+                text=f"incoming_connections:\n{json.dumps(results, indent=2, ensure_ascii=False)}"
+            )]
+        else:
+            return [types.TextContent(
+                type="text",
+                text="No incoming connection requests found"
+            )]
+            
+    except Exception as e:
+        return [types.TextContent(
+            type="text",
+            text=f"Error scraping incoming connections: {str(e)}"
+        )]
+
+async def scrape_outgoing_connections_tool(arguments: Dict[str, Any]) -> List[types.TextContent]:
+    max_results = arguments.get("max_results", 10)
+    
+    try:
+        scraper = session_manager.get_scraper()
+        results = scraper.scrape_outgoing_connections(max_results)
+        
+        if results:
+            return [types.TextContent(
+                type="text",
+                text=f"outgoing_connections:\n{json.dumps(results, indent=2, ensure_ascii=False)}"
+            )]
+        else:
+            return [types.TextContent(
+                type="text",
+                text="No outgoing connection requests found"
+            )]
+            
+    except Exception as e:
+        return [types.TextContent(
+            type="text",
+            text=f"Error scraping outgoing connections: {str(e)}"
+        )]
+
 async def main():
     from dotenv import load_dotenv
     load_dotenv()
@@ -215,7 +301,7 @@ async def main():
         )
     )
     
-    logger.info("MCP Server initialized with tools: scrape_profile, search_profiles, get_session_status, reset_session")
+    logger.info("MCP Server initialized with tools: scrape_profile, search_profiles, scrape_incoming_connections, scrape_outgoing_connections, get_session_status, reset_session")
     logger.info("Server is ready and waiting for client connections...")
     
     async with mcp.server.stdio.stdio_server() as (read_stream, write_stream):

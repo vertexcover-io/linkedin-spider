@@ -7,6 +7,7 @@ from ..utils.human_behavior import HumanBehavior
 from ..utils.tracking_handler import LinkedInTrackingHandler
 from ..scrapers.profile_scraper import ProfileScraper
 from ..scrapers.search_scraper import SearchScraper
+from ..scrapers.connection_scraper import ConnectionScraper
 
 class LinkedInScraper:
     def __init__(self, email=None, password=None, li_at_cookie=None, headless=False,
@@ -27,6 +28,7 @@ class LinkedInScraper:
         
         self.profile_scraper = ProfileScraper(self.driver, self.wait, self.human_behavior, self.tracking_handler)
         self.search_scraper = SearchScraper(self.driver, self.wait, self.human_behavior, self.tracking_handler)
+        self.connection_scraper = ConnectionScraper(self.driver, self.wait, self.human_behavior, self.tracking_handler)
         
         self._initialize_tracking_fixes()
         self.auth.authenticate()
@@ -43,6 +45,12 @@ class LinkedInScraper:
     def extract_headless_data(self):
         return self.search_scraper.extract_headless_data()
         
+    def scrape_incoming_connections(self, max_results=10):
+        return self.connection_scraper.scrape_incoming_connections(max_results)
+    
+    def scrape_outgoing_connections(self, max_results=10):
+        return self.connection_scraper.scrape_outgoing_connections(max_results)
+    
     def scrape_search_results(self, query, max_results=5, filters=None):
         profile_urls = self.search_profiles(query, max_results, filters)
         

@@ -5,6 +5,7 @@ outputs/*
 .idea/*
 venv/*
 __pycache__/*
+.claude/*
 
 docs/source
 

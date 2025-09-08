@@ -31,37 +31,22 @@ class ProfileScraper:
                 print(f"[ERROR] Failed to load profile page: {profile_url}")
                 return None
             
-            self.human_behavior.human_delay(1, 2)
-            self.human_behavior.simulate_reading_behavior(1, 3)
+            self.driver.execute_script("window.scrollTo(0, document.body.scrollHeight);")
+            self.human_behavior.human_delay(0.5, 1)
             
             profile_data = {}
-            
             profile_data['name'] = self._extract_name()
-            self.tracking_handler.simulate_interaction_types()
-            
             profile_data['headline'] = self._extract_headline()
-            self.human_behavior.human_scroll("down", random.randint(200, 400))
-            # self.human_behavior.human_delay(0.5, 1)
-            
             profile_data['location'] = self._extract_location()
-            
-            self.human_behavior.human_scroll("down", random.randint(150, 300))
-            self.human_behavior.human_delay(0.5, 1)
-            
             profile_data['about'] = self._extract_about()
-            
-            self.human_behavior.human_scroll("down", random.randint(200, 400))
-            # self.human_behavior.human_delay(0.5, 1)
-            
             profile_data['experience'] = self._extract_experience()
-            
-            self.human_behavior.human_scroll("down", random.randint(150, 300))
-            self.human_behavior.human_delay(0.5, 1)
-            
             profile_data['education'] = self._extract_education()
             profile_data['profile_url'] = profile_url
             
-            self.human_behavior.simulate_reading_behavior(1, 2)
+            self.human_behavior.human_scroll("up", random.randint(100, 300))
+            self.human_behavior.human_delay(1, 2)
+            self.human_behavior.human_scroll("down", random.randint(200, 400))
+            self.human_behavior.human_delay(1, 2)
             
             print(f"[SUCCESS] Successfully scraped profile: {profile_data.get('name', 'Unknown')}")
             print(f"   Headline: {profile_data.get('headline', 'N/A')}")
@@ -89,7 +74,6 @@ class ProfileScraper:
                     name_element = self.driver.find_element(By.CSS_SELECTOR, selector)
                     name_text = name_element.text.strip()
                     if name_text and len(name_text) > 2:
-                        self.tracking_handler.wait_for_element_impression(name_element)
                         return name_text
                 except NoSuchElementException:
                     continue
@@ -112,7 +96,6 @@ class ProfileScraper:
                     element = self.driver.find_element(By.CSS_SELECTOR, selector)
                     text = element.text.strip()
                     if text and len(text) > 5:
-                        self.tracking_handler.wait_for_element_impression(element)
                         return text
                 except NoSuchElementException:
                     continue
@@ -135,7 +118,6 @@ class ProfileScraper:
                     element = self.driver.find_element(By.CSS_SELECTOR, selector)
                     text = element.text.strip()
                     if text:
-                        self.tracking_handler.wait_for_element_impression(element)
                         return text
                 except NoSuchElementException:
                     continue
@@ -159,7 +141,6 @@ class ProfileScraper:
                         element = about_section.find_element(By.CSS_SELECTOR, selector)
                         text = element.text.strip()
                         if text and (selector != ".visually-hidden" ):
-                            self.tracking_handler.wait_for_element_impression(element, 0.5)
                             return text
                     except NoSuchElementException:
                         continue
@@ -169,7 +150,6 @@ class ProfileScraper:
                     element = self.driver.find_element(By.CSS_SELECTOR, selector)
                     text = element.text.strip()
                     if text:
-                        self.tracking_handler.wait_for_element_impression(element, 0.5)
                         return text
                 except NoSuchElementException:
                     continue
@@ -202,12 +182,6 @@ class ProfileScraper:
         return experience_list
     
     def _extract_experience_item(self, container):
-        try:
-            self.driver.execute_script("arguments[0].scrollIntoView({behavior: 'smooth', block: 'center'});", container)
-            self.tracking_handler.wait_for_element_impression(container)
-            self.human_behavior.human_delay(0.2, 0.5)
-        except Exception:
-            pass
         
         exp_data = {"title": "N/A", "company": "N/A", "company_url": "N/A", "duration": "N/A", "location": "N/A"}
         
@@ -321,12 +295,6 @@ class ProfileScraper:
         return education_list
     
     def _extract_education_item(self, container):
-        try:
-            self.driver.execute_script("arguments[0].scrollIntoView({behavior: 'smooth', block: 'center'});", container)
-            self.tracking_handler.wait_for_element_impression(container)
-            self.human_behavior.human_delay(0.2, 0.5)
-        except Exception:
-            pass
         
         edu_data = {"school": "N/A", "degree": "N/A", "field_of_study": "N/A", "duration": "N/A", "grade": "N/A"}
         
