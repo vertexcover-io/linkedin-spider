@@ -60,6 +60,22 @@ async def handle_list_tools() -> list[types.Tool]:
                     "industry": {
                         "type": "string",
                         "description": "Industry filter for the search (optional)"
+                    },
+                    "current_company": {
+                        "type": "string",
+                        "description": "Current company filter for the search (optional)"
+                    },
+                    "connections": {
+                        "type": "string",
+                        "description": "Connection level filter (1st, 2nd, 3rd, all) (optional)"
+                    },
+                    "connection_of": {
+                        "type": "string",
+                        "description": "Connection of specific person filter (optional)"
+                    },
+                    "followers_of": {
+                        "type": "string",
+                        "description": "Followers of specific person filter (optional)"
                     }
                 },
                 "required": ["query"]
@@ -171,6 +187,10 @@ async def search_profiles_tool(arguments: Dict[str, Any]) -> List[types.TextCont
     max_results = arguments.get("max_results", 5)
     location = arguments.get("location")
     industry = arguments.get("industry")
+    current_company = arguments.get("current_company")
+    connections = arguments.get("connections")
+    connection_of = arguments.get("connection_of")
+    followers_of = arguments.get("followers_of")
     
     if not query:
         raise McpError(-32602, "query is required")
@@ -179,8 +199,15 @@ async def search_profiles_tool(arguments: Dict[str, Any]) -> List[types.TextCont
         scraper = session_manager.get_scraper()
         
         filters = None
-        if location or industry:
-            filters = SearchFilters(location=location, industry=industry)
+        if location or industry or current_company or connections or connection_of or followers_of:
+            filters = SearchFilters(
+                location=location,
+                industry=industry,
+                current_company=current_company,
+                connections=connections,
+                connection_of=connection_of,
+                followers_of=followers_of
+            )
         
         results = scraper.scrape_search_results(query, max_results, filters)
         

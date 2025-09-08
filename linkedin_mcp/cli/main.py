@@ -15,6 +15,10 @@ def scrape(
     max_results: int = 3,
     location: str = None,
     industry: str = None,
+    current_company: str = None,
+    connections: str = None,
+    connection_of: str = None,
+    followers_of: str = None,
     headless: bool = False
 ):
     """Scrape LinkedIn profiles based on search query."""
@@ -30,8 +34,15 @@ def scrape(
 
     try:
         filters = None
-        if location or industry:
-            filters = SearchFilters(location=location, industry=industry)
+        if location or industry or current_company or connections or connection_of or followers_of:
+            filters = SearchFilters(
+                location=location,
+                industry=industry,
+                current_company=current_company,
+                connections=connections,
+                connection_of=connection_of,
+                followers_of=followers_of
+            )
 
         results = scraper.scrape_search_results(query, max_results, filters)
 

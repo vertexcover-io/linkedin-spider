@@ -1,9 +1,13 @@
 import urllib.parse
 
 class SearchFilters:
-    def __init__(self, location=None, industry=None):
+    def __init__(self, location=None, industry=None, current_company=None, connections=None, connection_of=None, followers_of=None):
         self.location = location
         self.industry = industry
+        self.current_company = current_company
+        self.connections = connections
+        self.connection_of = connection_of
+        self.followers_of = followers_of
         
     def to_url_params(self):
         params = {}
@@ -15,6 +19,22 @@ class SearchFilters:
         if self.industry:
             industry_encoded = urllib.parse.quote(self.industry)
             params['industryUrn'] = self._get_industry_urn(self.industry)
+            
+        if self.current_company:
+            company_urn = self._get_company_urn(self.current_company)
+            if company_urn:
+                params['currentCompany'] = company_urn
+                
+        if self.connections:
+            network_depth = self._get_network_depth(self.connections)
+            if network_depth:
+                params['network'] = network_depth
+                
+        if self.connection_of:
+            params['connectionOf'] = self.connection_of
+            
+        if self.followers_of:
+            params['followersOf'] = self.followers_of
             
         return params
     
@@ -156,8 +176,91 @@ class SearchFilters:
         industry_lower = industry.lower().strip()
         return industry_mapping.get(industry_lower, '6')
     
+    def _get_company_urn(self, company):
+        company_mapping = {
+            'google': '1441',
+            'alphabet': '1441',
+            'microsoft': '1035',
+            'apple': '162479',
+            'amazon': '1586',
+            'meta': '10667',
+            'facebook': '10667',
+            'tesla': '15564',
+            'netflix': '165158',
+            'spotify': '1123937',
+            'uber': '1815218',
+            'airbnb': '813552',
+            'linkedin': '1337',
+            'twitter': '96622',
+            'x': '96622',
+            'openai': '10967428',
+            'anthropic': '81096048',
+            'nvidia': '3608',
+            'intel': '1053',
+            'amd': '1028',
+            'ibm': '1009',
+            'oracle': '1028',
+            'salesforce': '3185',
+            'adobe': '1033',
+            'cisco': '1063',
+            'vmware': '6094',
+            'red hat': '2382910',
+            'docker': '5608783',
+            'mongodb': '2159488',
+            'stripe': '2135371',
+            'shopify': '2463371',
+            'zoom': '1899994',
+            'slack': '2313654',
+            'atlassian': '8327',
+            'github': '1418875',
+            'gitlab': '8825023',
+            'datadog': '1860025',
+            'snowflake': '60563711',
+            'palantir': '20708',
+            'twilio': '1098509',
+            'square': '1065605',
+            'paypal': '1014',
+            'visa': '3017',
+            'mastercard': '3015',
+            'jpmorgan chase': '1067',
+            'goldman sachs': '2800',
+            'morgan stanley': '2887',
+            'bank of america': '1049',
+            'wells fargo': '3512',
+            'citigroup': '1054',
+            'blackrock': '2304',
+            'vanguard': '162461',
+            'mckinsey': '1073',
+            'bcg': '3879',
+            'bain': '253085',
+            'deloitte': '1038',
+            'pwc': '3393',
+            'ey': '1072',
+            'kpmg': '1080'
+        }
+        
+        company_lower = company.lower().strip()
+        return company_mapping.get(company_lower)
+    
+    def _get_network_depth(self, connections):
+        connection_mapping = {
+            '1st': 'F',
+            'first': 'F',
+            '1': 'F',
+            '2nd': 'S',
+            'second': 'S',
+            '2': 'S',
+            '3rd': 'O',
+            'third': 'O',
+            '3': 'O',
+            'all': 'F,S,O'
+        }
+        
+        connections_lower = connections.lower().strip()
+        return connection_mapping.get(connections_lower)
+    
     def is_empty(self):
-        return not self.location and not self.industry
+        return not any([self.location, self.industry, self.current_company, self.connections, self.connection_of, self.followers_of])
     
     def __str__(self):
         filters = []
@@ -165,6 +268,14 @@ class SearchFilters:
             filters.append(f"Location: {self.location}")
         if self.industry:
             filters.append(f"Industry: {self.industry}")
+        if self.current_company:
+            filters.append(f"Current Company: {self.current_company}")
+        if self.connections:
+            filters.append(f"Connections: {self.connections}")
+        if self.connection_of:
+            filters.append(f"Connection of: {self.connection_of}")
+        if self.followers_of:
+            filters.append(f"Followers of: {self.followers_of}")
         return ", ".join(filters) if filters else "No filters"
 
 def build_search_url(query, filters=None):
