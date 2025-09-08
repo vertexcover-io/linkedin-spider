@@ -54,21 +54,11 @@ Add to your MCP configuration file (e.g., `.mcp.json`):
       "args": ["run", "linkedin_mcp"],
       "cwd": "/path/to/linkedin-scraper",
       "env": {
-        "cookie": "YOUR_LINKEDIN_LI_AT_COOKIE"
+        "cookie": "${LINKEDIN_COOKIE}" // export your cookie through terminal as cookie:"value"
       }
     }
   }
 }
-```
-
-### Environment Setup
-
-Create a `.env` file in the project root:
-
-```env
-LI_AT_COOKIE=your_linkedin_li_at_cookie_here
-HEADLESS=true
-STEALTH_MODE=true
 ```
 
 ### Obtaining LinkedIn Cookie
@@ -222,15 +212,6 @@ linkedin_mcp/
 - Search operations: 10-20 results per minute
 - Connection requests: 5-10 per minute
 
-## Error Handling
-
-The scraper includes comprehensive error handling for:
-
-- Network timeouts and connection issues
-- LinkedIn rate limiting and blocking
-- Element not found exceptions
-- Session expiration and re-authentication
-- Browser crashes and recovery
 
 ## Troubleshooting
 
@@ -244,14 +225,6 @@ The scraper includes comprehensive error handling for:
 
 **Elements not found**: LinkedIn may have updated their UI - check for updates
 
-### Debugging
-
-Enable debug logging:
-
-```python
-import logging
-logging.basicConfig(level=logging.DEBUG)
-```
 
 ## License
 
