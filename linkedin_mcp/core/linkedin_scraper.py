@@ -8,6 +8,9 @@ from ..utils.tracking_handler import LinkedInTrackingHandler
 from ..scrapers.profile_scraper import ProfileScraper
 from ..scrapers.search_scraper import SearchScraper
 from ..scrapers.connection_scraper import ConnectionScraper
+from ..scrapers.company_scraper import CompanyScraper
+from ..scrapers.conversations_list_scraper import ConversationsListScraper
+from ..scrapers.conversation_scraper import ConversationScraper
 
 class LinkedInScraper:
     def __init__(self, email=None, password=None, li_at_cookie=None, headless=False,
@@ -29,6 +32,9 @@ class LinkedInScraper:
         self.profile_scraper = ProfileScraper(self.driver, self.wait, self.human_behavior, self.tracking_handler)
         self.search_scraper = SearchScraper(self.driver, self.wait, self.human_behavior, self.tracking_handler)
         self.connection_scraper = ConnectionScraper(self.driver, self.wait, self.human_behavior, self.tracking_handler)
+        self.company_scraper = CompanyScraper(self.driver, self.wait, self.human_behavior, self.tracking_handler)
+        self.conversations_scraper = ConversationsListScraper(self.driver, self.wait, self.human_behavior, self.tracking_handler)
+        self.conversation_scraper = ConversationScraper(self.driver, self.wait, self.human_behavior, self.tracking_handler)
         
         self._initialize_tracking_fixes()
         self.auth.authenticate()
@@ -50,6 +56,15 @@ class LinkedInScraper:
     
     def scrape_outgoing_connections(self, max_results=10):
         return self.connection_scraper.scrape_outgoing_connections(max_results)
+    
+    def scrape_company(self, company_url):
+        return self.company_scraper.scrape_company(company_url)
+    
+    def scrape_conversations_list(self, max_results=10):
+        return self.conversations_scraper.scrape_conversations_list(max_results)
+    
+    def scrape_conversation_messages(self, participant_name=None):
+        return self.conversation_scraper.scrape_conversation_messages(participant_name)
     
     def scrape_search_results(self, query, max_results=5, filters=None):
         profile_urls = self.search_profiles(query, max_results, filters)
