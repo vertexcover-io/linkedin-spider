@@ -114,6 +114,10 @@ class DriverManager:
             return None
     
     def _find_existing_chromedriver(self):
+        env_path = os.environ.get('CHROMEDRIVER_PATH')
+        if env_path and os.path.exists(env_path) and os.access(env_path, os.X_OK):
+            return env_path
+            
         possible_locations = []
         
         drivers_dir = os.path.join(os.path.expanduser("~"), ".chromedriver")
