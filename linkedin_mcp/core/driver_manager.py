@@ -13,7 +13,7 @@ import subprocess
 from .config import ScraperConfig
 
 class DriverManager:
-    def __init__(self, headless=False, stealth_mode=True):
+    def __init__(self, headless=True, stealth_mode=True):
         self.headless = headless
         self.stealth_mode = stealth_mode
         self.driver = None

@@ -33,6 +33,8 @@ class LinkedInSessionManager:
         if not li_at:
             raise ValueError("cookie environment variable is required")
         
+        headless = os.getenv('HEADLESS', 'true').lower() in ('true', '1', 'yes')
+        
         if self._scraper is not None:
             try:
                 self._scraper.close()
@@ -41,7 +43,7 @@ class LinkedInSessionManager:
         
         self._scraper = LinkedInScraper(
             li_at_cookie=li_at,
-            headless=False,
+            headless=headless,
             stealth_mode=True
         )
         self._session_active = True

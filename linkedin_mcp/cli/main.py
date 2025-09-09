@@ -19,12 +19,14 @@ def scrape(
     connections: str = None,
     connection_of: str = None,
     followers_of: str = None,
-    headless: bool = False
+    headless: bool = None
 ):
     """Scrape LinkedIn profiles based on search query."""
     li_at = os.getenv('cookie')
     if not li_at:
         raise ValueError("cookie environment variable is required")
+    if headless is None:
+        headless = os.getenv('HEADLESS', 'true').lower() in ('true', '1', 'yes')
 
     scraper = LinkedInScraper(
         li_at_cookie=li_at,
@@ -58,12 +60,16 @@ def scrape(
 @app.command()
 def profile(
     profile_url: str,
-    headless: bool = False
+    headless: bool = None
 ):
     """Scrape a single LinkedIn profile."""
     li_at = os.getenv('cookie')
     if not li_at:
         raise ValueError("cookie environment variable is required")
+    
+    # Use environment variable for headless mode, fallback to parameter or default True
+    if headless is None:
+        headless = os.getenv('HEADLESS', 'true').lower() in ('true', '1', 'yes')
 
     scraper = LinkedInScraper(
         li_at_cookie=li_at,
