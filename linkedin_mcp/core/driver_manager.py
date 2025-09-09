@@ -164,7 +164,7 @@ class DriverManager:
         if self.headless:
             chrome_options.add_argument("--headless")
             
-        for option in ScraperConfig.CHROME_OPTIONS:
+        for option in ScraperConfig.get_chrome_options_for_platform():
             chrome_options.add_argument(option)
             
         chrome_options.add_argument(f"--user-agent={ScraperConfig.get_random_user_agent()}")
@@ -201,6 +201,25 @@ class DriverManager:
         
         if self.stealth_mode:
             self.driver.execute_script("Object.defineProperty(navigator, 'webdriver', {get: () => undefined})")
+            
+            if platform.system() == "Darwin":
+                self.driver.execute_cdp_cmd('Emulation.setUserAgentOverride', {
+                    'userAgent': ScraperConfig.get_random_user_agent(),
+                    'acceptLanguage': 'en-US,en;q=0.9',
+                    'platform': 'macOS'
+                })
+                
+                self.driver.execute_cdp_cmd('Emulation.setDeviceMetricsOverride', {
+                    'width': 1920,
+                    'height': 1080,
+                    'deviceScaleFactor': 2,
+                    'mobile': False
+                })
+                
+                self.driver.execute_cdp_cmd('Emulation.setTimezoneOverride', {
+                    'timezoneId': 'America/New_York'
+                })
+            
             self.driver.execute_cdp_cmd('Page.addScriptToEvaluateOnNewDocument', {
                 "source": ScraperConfig.STEALTH_SCRIPT
             })

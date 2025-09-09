@@ -1,11 +1,23 @@
 import random
+import platform
 
 class ScraperConfig:
-    USER_AGENTS = [
-        "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36",
-        "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/121.0.0.0 Safari/537.36",
-        "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36",
-        "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36"
+    WINDOWS_USER_AGENTS = [
+        "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/131.0.0.0 Safari/537.36",
+        "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/130.0.0.0 Safari/537.36",
+        "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/129.0.0.0 Safari/537.36"
+    ]
+    
+    MACOS_USER_AGENTS = [
+        "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/131.0.0.0 Safari/537.36",
+        "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/130.0.0.0 Safari/537.36",
+        "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/129.0.0.0 Safari/537.36"
+    ]
+    
+    LINUX_USER_AGENTS = [
+        "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/131.0.0.0 Safari/537.36",
+        "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/130.0.0.0 Safari/537.36",
+        "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/129.0.0.0 Safari/537.36"
     ]
     
     HUMAN_DELAY_RANGE = (0.5, 2.0)
@@ -48,6 +60,52 @@ class ScraperConfig:
         "--disable-features=BlockInsecurePrivateNetworkRequests",
         "--allow-running-insecure-content",
         "--disable-client-side-phishing-detection"
+    ]
+    
+    MACOS_ADDITIONAL_OPTIONS = [
+        "--disable-field-trial-config",
+        "--disable-background-media-suspend",
+        "--disable-back-forward-cache",
+        "--disable-features=TranslateUI,BlinkGenPropertyTrees,ImprovedCookieControls,SameSiteByDefaultCookies,CookiesWithoutSameSiteMustBeSecure",
+        "--disable-component-update",
+        "--disable-domain-reliability",
+        "--disable-breakpad",
+        "--disable-component-extensions-with-background-pages",
+        "--disable-extensions",
+        "--disable-features=MediaRouter",
+        "--no-experiments",
+        "--ignore-gpu-blocklist",
+        "--ignore-certificate-errors",
+        "--ignore-ssl-errors",
+        "--ignore-certificate-errors-spki-list",
+        "--disable-gpu-sandbox",
+        "--disable-software-rasterizer",
+        "--disable-gpu-watchdog",
+        "--hide-scrollbars",
+        "--mute-audio",
+        "--disable-audio-output",
+        "--no-first-run",
+        "--no-service-autorun",
+        "--no-wifi",
+        "--no-default-browser-check",
+        "--no-pings",
+        "--no-zygote",
+        "--password-store=basic",
+        "--use-mock-keychain",
+        "--disable-bundled-ppapi-flash",
+        "--disable-plugins-discovery",
+        "--disable-preconnect",
+        "--disable-translate",
+        "--disable-sync",
+        "--metrics-recording-only",
+        "--safebrowsing-disable-auto-update",
+        "--enable-async-dns",
+        "--disable-default-apps",
+        "--disable-background-timer-throttling",
+        "--disable-renderer-backgrounding",
+        "--disable-backgrounding-occluded-windows",
+        "--force-fieldtrials=*BackgroundTracing/default/",
+        "--disable-ipc-flooding-protection"
     ]
     
     CHROME_PREFS = {
@@ -111,4 +169,17 @@ class ScraperConfig:
     
     @classmethod
     def get_random_user_agent(cls):
-        return random.choice(cls.USER_AGENTS)
+        system = platform.system()
+        if system == "Darwin":
+            return random.choice(cls.MACOS_USER_AGENTS)
+        elif system == "Windows":
+            return random.choice(cls.WINDOWS_USER_AGENTS)
+        else:
+            return random.choice(cls.LINUX_USER_AGENTS)
+    
+    @classmethod
+    def get_chrome_options_for_platform(cls):
+        options = cls.CHROME_OPTIONS.copy()
+        if platform.system() == "Darwin":
+            options.extend(cls.MACOS_ADDITIONAL_OPTIONS)
+        return options
