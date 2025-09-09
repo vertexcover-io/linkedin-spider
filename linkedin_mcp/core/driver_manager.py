@@ -165,6 +165,11 @@ class DriverManager:
     def setup_driver(self):
         chrome_options = Options()
         
+        # Set Chrome binary path from environment if available
+        chrome_path = os.environ.get('CHROME_PATH')
+        if chrome_path and os.path.exists(chrome_path):
+            chrome_options.binary_location = chrome_path
+        
         if self.headless:
             chrome_options.add_argument("--headless")
             
