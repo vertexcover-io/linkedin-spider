@@ -22,6 +22,7 @@ dependencies = [
     "psutil>=5.9.0",
     "python-dotenv>=1.0.0",
     "mcp>=1.0.0",
+    "fastmcp>=2.12.2",
 ]
 
 [project.urls]
@@ -30,6 +31,8 @@ Repository = "https://github.com/amankumarsingh77/linkedin-mcp"
 
 [project.scripts]
 linkedin_mcp = "linkedin_mcp.server:cli_main"
+linkedin_mcp_sse = "linkedin_mcp.server_sse:cli_main"
+linkedin_mcp_proxy = "linkedin_mcp.server_proxy:cli_main"
 
 [tool.uv]
 dev-dependencies = [
