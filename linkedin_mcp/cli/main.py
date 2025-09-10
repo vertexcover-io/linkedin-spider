@@ -30,8 +30,7 @@ def scrape(
 
     scraper = LinkedInScraper(
         li_at_cookie=li_at,
-        headless=headless,
-        stealth_mode=True
+        headless=headless  # or False for GUI mode
     )
 
     try:
@@ -67,7 +66,6 @@ def profile(
     if not li_at:
         raise ValueError("cookie environment variable is required")
     
-    # Use environment variable for headless mode, fallback to parameter or default True
     if headless is None:
         headless = os.getenv('HEADLESS', 'true').lower() in ('true', '1', 'yes')
 
