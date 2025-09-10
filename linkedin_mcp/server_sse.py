@@ -183,7 +183,19 @@ def main():
     logger.info("FastMCP SSE Server initialized with tools: scrape_profile, search_profiles, scrape_company, scrape_incoming_connections, scrape_outgoing_connections, get_session_status, reset_session")
     logger.info("Server is ready and waiting for SSE connections...")
     
-    app.run(transport="sse")
+    import sys
+    
+    host = os.getenv("HOST", "127.0.0.1")
+    port = int(os.getenv("PORT", "8000"))
+    
+    for i, arg in enumerate(sys.argv):
+        if arg == "--host" and i + 1 < len(sys.argv):
+            host = sys.argv[i + 1]
+        elif arg == "--port" and i + 1 < len(sys.argv):
+            port = int(sys.argv[i + 1])
+    
+    logger.info(f"Starting server on {host}:{port}")
+    app.run(transport="sse", host=host, port=port)
 
 def cli_main():
     main()

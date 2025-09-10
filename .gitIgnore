@@ -8,6 +8,7 @@ __pycache__/*
 .claude/*
 
 docs/source
+deploy/*
 
 # From https://raw.githubusercontent.com/github/gitignore/main/Python.gitignore
 
