@@ -4,7 +4,7 @@ import urllib.parse
 from selenium.webdriver.common.by import By
 from selenium.webdriver.support import expected_conditions as EC
 from selenium.common.exceptions import TimeoutException
-from .search_filters import SearchFilters, build_search_url
+from .search_filters import SearchFilters, DynamicFilterScraper, build_search_url
 
 class SearchScraper:
     def __init__(self, driver, wait, human_behavior, tracking_handler):
@@ -12,14 +12,18 @@ class SearchScraper:
         self.wait = wait
         self.human_behavior = human_behavior
         self.tracking_handler = tracking_handler
+        self.dynamic_filter_scraper = DynamicFilterScraper(driver, wait, human_behavior)
 
     def search_profiles(self, query, max_results=10, filters=None, save_html_path="search_results.html"):
         print(f"Searching for: '{query}'")
+        
         if filters and not filters.is_empty():
-            print(f"Applied filters: {filters}")
-
-        search_url = build_search_url(query, filters)
-        self.driver.get(search_url)
+            print(f"Applying dynamic filters: {filters}")
+            search_url = filters.apply_with_scraper(self.dynamic_filter_scraper, query)
+            print(f"Search URL with filters: {search_url}")
+        else:
+            search_url = build_search_url(query, None)
+            self.driver.get(search_url)
 
         self.human_behavior.human_delay(1, 3)
         self.human_behavior.simulate_reading_behavior(1, 2)

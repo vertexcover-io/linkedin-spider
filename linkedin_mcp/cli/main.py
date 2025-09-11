@@ -30,7 +30,7 @@ def scrape(
 
     scraper = LinkedInScraper(
         li_at_cookie=li_at,
-        headless=headless  # or False for GUI mode
+        headless=headless
     )
 
     try:
