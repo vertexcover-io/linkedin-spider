@@ -161,16 +161,27 @@ class DynamicFilterScraper:
             
             suggestions = self._wait_for_suggestions()
             if suggestions:
-                best_match = self._find_best_match(suggestions, query)
-                if best_match:
-                    self.driver.execute_script("arguments[0].click();", best_match)
+                best_match_text = None
+                best_match_found = False
+                
+                for suggestion in suggestions:
+                    try:
+                        text_element = suggestion.find_element(By.CSS_SELECTOR, "p")
+                        suggestion_text = text_element.text.strip()
+                        
+                        if query.lower() in suggestion_text.lower():
+                            best_match_text = suggestion_text
+                            self.driver.execute_script("arguments[0].click();", suggestion)
+                            best_match_found = True
+                            break
+                    except Exception:
+                        continue
+                
+                if best_match_found:
                     self.human_behavior.human_delay(1, 2)
-                    
-                    selected_text = best_match.find_element(By.TAG_NAME, "p").text if best_match.find_elements(By.TAG_NAME, "p") else best_match.text
-                    
                     return {
                         'query': query,
-                        'selected': selected_text,
+                        'selected': best_match_text,
                         'param': self._extract_filter_param(filter_type)
                     }
             
