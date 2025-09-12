@@ -87,5 +87,44 @@ def profile(
     finally:
         scraper.close()
 
+@app.command()
+def connect(
+    profile_url: str,
+    note: str = None,
+    headless: bool = None
+):
+    """Send a connection request to a LinkedIn profile."""
+    li_at = os.getenv('cookie')
+    if not li_at:
+        raise ValueError("cookie environment variable is required")
+    
+    if headless is None:
+        headless = os.getenv('HEADLESS', 'true').lower() in ('true', '1', 'yes')
+
+    scraper = LinkedInScraper(
+        li_at_cookie=li_at,
+        headless=headless,
+        stealth_mode=True
+    )
+
+    try:
+        success = scraper.send_connection_request(profile_url, note)
+        
+        result = {
+            "profile_url": profile_url,
+            "note": note,
+            "success": success,
+            "message": "Connection request sent successfully" if success else "Failed to send connection request"
+        }
+        
+        print(json.dumps(result, indent=2))
+
+    except KeyboardInterrupt:
+        print("Operation interrupted by user.")
+    except Exception as e:
+        print(f"An error occurred: {str(e)}")
+    finally:
+        scraper.close()
+
 if __name__ == "__main__":
     app()

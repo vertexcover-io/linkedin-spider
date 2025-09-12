@@ -3,6 +3,8 @@ import json
 import logging
 import sys
 import os
+from dotenv import load_dotenv
+load_dotenv()
 from typing import Any, Dict, List, Optional
 
 from fastmcp import FastMCP
@@ -167,9 +169,28 @@ async def scrape_conversation(participant_name: Optional[str] = None) -> str:
     except Exception as e:
         return f"Error scraping conversation: {str(e)}"
 
+@app.tool()
+async def send_connection_request(profile_url: str, note: Optional[str] = None) -> str:
+    if not profile_url:
+        raise ValueError("profile_url is required")
+    
+    try:
+        scraper = session_manager.get_scraper()
+        success = scraper.send_connection_request(profile_url, note)
+        
+        result = {
+            "profile_url": profile_url,
+            "note": note,
+            "success": success,
+            "message": "Connection request sent successfully" if success else "Failed to send connection request"
+        }
+        
+        return f"connection_request_result:\n{json.dumps(result, indent=2, ensure_ascii=False)}"
+        
+    except Exception as e:
+        return f"Error sending connection request to {profile_url}: {str(e)}"
+
 def main():
-    from dotenv import load_dotenv
-    load_dotenv()
     
     logger.info("Starting LinkedIn MCP SSE Server...")
     
@@ -198,7 +219,7 @@ def main():
         logger.warning(f"Failed to initialize browser session: {e}")
         logger.info("Server will start but browser session will be inactive")
     
-    logger.info("FastMCP SSE Server initialized with tools: scrape_profile, search_profiles, scrape_company, scrape_incoming_connections, scrape_outgoing_connections, get_session_status, reset_session")
+    logger.info("FastMCP SSE Server initialized with tools: scrape_profile, search_profiles, scrape_company, scrape_incoming_connections, scrape_outgoing_connections, scrape_conversations_list, scrape_conversation, send_connection_request, get_session_status, reset_session")
     logger.info("Server is ready and waiting for SSE connections...")
     
     logger.info(f"Starting server on {host}:{port}")

@@ -11,6 +11,7 @@ from ..scrapers.connection_scraper import ConnectionScraper
 from ..scrapers.company_scraper import CompanyScraper
 from ..scrapers.conversations_list_scraper import ConversationsListScraper
 from ..scrapers.conversation_scraper import ConversationScraper
+from ..scrapers.connect_request_scraper import ConnectRequestScraper
 
 class LinkedInScraper:
     def __init__(self, email=None, password=None, li_at_cookie=None, headless=False,
@@ -35,6 +36,7 @@ class LinkedInScraper:
         self.company_scraper = CompanyScraper(self.driver, self.wait, self.human_behavior, self.tracking_handler)
         self.conversations_scraper = ConversationsListScraper(self.driver, self.wait, self.human_behavior, self.tracking_handler)
         self.conversation_scraper = ConversationScraper(self.driver, self.wait, self.human_behavior, self.tracking_handler)
+        self.connect_request_scraper = ConnectRequestScraper(self.driver, self.wait, self.human_behavior, self.tracking_handler)
         
         self._initialize_tracking_fixes()
         self.auth.authenticate()
@@ -65,6 +67,9 @@ class LinkedInScraper:
     
     def scrape_conversation_messages(self, participant_name=None):
         return self.conversation_scraper.scrape_conversation_messages(participant_name)
+    
+    def send_connection_request(self, profile_url, note=None):
+        return self.connect_request_scraper.send_connection_request(profile_url, note)
     
     def scrape_search_results(self, query, max_results=5, filters=None):
         profile_urls = self.search_profiles(query, max_results, filters)
