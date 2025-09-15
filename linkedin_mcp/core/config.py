@@ -129,42 +129,67 @@ class ScraperConfig:
     }
     
     STEALTH_SCRIPT = """
-        Object.defineProperty(navigator, 'webdriver', {
-            get: () => undefined,
-        });
+        try {
+            if (!Object.getOwnPropertyDescriptor(navigator, 'webdriver')) {
+                Object.defineProperty(navigator, 'webdriver', {
+                    get: () => undefined,
+                    configurable: true
+                });
+            }
+        } catch (e) {}
 
-        Object.defineProperty(navigator, 'plugins', {
-            get: () => [
-                {
-                    0: {type: "application/x-google-chrome-pdf", suffixes: "pdf", description: "Portable Document Format", enabledPlugin: {}},
-                    description: "Portable Document Format",
-                    filename: "internal-pdf-viewer",
-                    length: 1,
-                    name: "Chrome PDF Plugin"
-                }
-            ],
-        });
+        try {
+            if (!Object.getOwnPropertyDescriptor(navigator, 'plugins')) {
+                Object.defineProperty(navigator, 'plugins', {
+                    get: () => [
+                        {
+                            0: {type: "application/x-google-chrome-pdf", suffixes: "pdf", description: "Portable Document Format", enabledPlugin: {}},
+                            description: "Portable Document Format",
+                            filename: "internal-pdf-viewer",
+                            length: 1,
+                            name: "Chrome PDF Plugin"
+                        }
+                    ],
+                    configurable: true
+                });
+            }
+        } catch (e) {}
 
-        Object.defineProperty(navigator, 'languages', {
-            get: () => ['en-US', 'en'],
-        });
+        try {
+            if (!Object.getOwnPropertyDescriptor(navigator, 'languages')) {
+                Object.defineProperty(navigator, 'languages', {
+                    get: () => ['en-US', 'en'],
+                    configurable: true
+                });
+            }
+        } catch (e) {}
 
-        const originalQuery = window.navigator.permissions.query;
-        window.navigator.permissions.query = (parameters) => (
-            parameters.name === 'notifications' ?
-            Promise.resolve({ state: Notification.permission }) :
-            originalQuery(parameters)
-        );
+        try {
+            const originalQuery = window.navigator.permissions.query;
+            if (originalQuery) {
+                window.navigator.permissions.query = (parameters) => (
+                    parameters.name === 'notifications' ?
+                    Promise.resolve({ state: Notification.permission }) :
+                    originalQuery(parameters)
+                );
+            }
+        } catch (e) {}
 
-        if (window.chrome && window.chrome.runtime) {
-            delete window.chrome.runtime;
-        }
+        try {
+            if (window.chrome && window.chrome.runtime) {
+                delete window.chrome.runtime;
+            }
 
-        window.chrome = {
-            runtime: undefined
-        };
+            if (!window.chrome) {
+                window.chrome = {
+                    runtime: undefined
+                };
+            }
+        } catch (e) {}
 
-        console.debug = () => {};
+        try {
+            console.debug = () => {};
+        } catch (e) {}
     """
     
     @classmethod
