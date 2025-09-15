@@ -10,6 +10,8 @@ import requests
 import zipfile
 import shutil
 import subprocess
+import json
+import tempfile
 from .config import ScraperConfig
 
 class DriverManager:
@@ -19,6 +21,8 @@ class DriverManager:
         self.driver = None
         self.wait = None
         self.actions = None
+        self.profile_dir = None
+        self.cookies_file = None
         
     def _get_chrome_version(self):
         try:
@@ -161,32 +165,87 @@ class DriverManager:
             return None
         
         return self._download_and_extract_chromedriver(download_url, version)
-        
+
+    def _setup_profile_directory(self):
+        profile_base = os.path.join(os.getcwd(), ".linkedin_scraper_profiles")
+        os.makedirs(profile_base, exist_ok=True)
+
+        self.profile_dir = os.path.join(profile_base, "default_profile")
+        os.makedirs(self.profile_dir, exist_ok=True)
+
+        self.cookies_file = os.path.join(self.profile_dir, "cookies.json")
+        return self.profile_dir
+
+    def save_cookies(self):
+        if not self.driver or not self.cookies_file:
+            return False
+
+        try:
+            cookies = self.driver.get_cookies()
+            with open(self.cookies_file, 'w') as f:
+                json.dump(cookies, f)
+            return True
+        except Exception as e:
+            print(f"Error saving cookies: {e}")
+            return False
+
+    def load_cookies(self):
+        if not self.driver or not self.cookies_file or not os.path.exists(self.cookies_file):
+            return False
+
+        try:
+            with open(self.cookies_file, 'r') as f:
+                cookies = json.load(f)
+
+            for cookie in cookies:
+                try:
+                    self.driver.add_cookie(cookie)
+                except Exception:
+                    continue
+            return True
+        except Exception as e:
+            print(f"Error loading cookies: {e}")
+            return False
+
+    def clear_saved_cookies(self):
+        if self.cookies_file and os.path.exists(self.cookies_file):
+            try:
+                os.remove(self.cookies_file)
+                return True
+            except Exception:
+                return False
+        return True
+
     def setup_driver(self):
         chrome_options = Options()
-        
-        # Set Chrome binary path from environment if available
+
+        profile_dir = self._setup_profile_directory()
+        chrome_options.add_argument(f"--user-data-dir={profile_dir}")
+        chrome_options.add_argument("--profile-directory=Default")
+
         chrome_path = os.environ.get('CHROME_PATH')
         if chrome_path and os.path.exists(chrome_path):
             chrome_options.binary_location = chrome_path
-        
+
         if self.headless:
             chrome_options.add_argument("--headless")
-            
+
         for option in ScraperConfig.get_chrome_options_for_platform():
             chrome_options.add_argument(option)
-            
+
         chrome_options.add_argument(f"--user-agent={ScraperConfig.get_random_user_agent()}")
-        
+
         chrome_options.add_experimental_option("excludeSwitches", ["enable-automation", "enable-logging"])
         chrome_options.add_experimental_option('useAutomationExtension', False)
         chrome_options.add_experimental_option("detach", True)
         chrome_options.add_experimental_option("prefs", ScraperConfig.CHROME_PREFS)
-        
+
         chrome_options.add_argument("--keep-alive-for-test")
         chrome_options.add_argument("--disable-background-timer-throttling")
         chrome_options.add_argument("--disable-backgrounding-occluded-windows")
         chrome_options.add_argument("--disable-renderer-backgrounding")
+        chrome_options.add_argument("--remote-debugging-port=9222")
+        chrome_options.add_argument("--remote-allow-origins=*")
         
         try:
             driver_path = self._ensure_chromedriver()
@@ -209,29 +268,38 @@ class DriverManager:
                 raise Exception(f"Chrome driver initialization failed: {fallback_error}")
         
         if self.stealth_mode:
-            self.driver.execute_script("Object.defineProperty(navigator, 'webdriver', {get: () => undefined})")
-            
+            try:
+                self.driver.execute_script("try { if (!Object.getOwnPropertyDescriptor(navigator, 'webdriver')) { Object.defineProperty(navigator, 'webdriver', {get: () => undefined, configurable: true}); } } catch(e) {}")
+            except Exception:
+                pass
+
             if platform.system() == "Darwin":
-                self.driver.execute_cdp_cmd('Emulation.setUserAgentOverride', {
-                    'userAgent': ScraperConfig.get_random_user_agent(),
-                    'acceptLanguage': 'en-US,en;q=0.9',
-                    'platform': 'macOS'
+                try:
+                    self.driver.execute_cdp_cmd('Emulation.setUserAgentOverride', {
+                        'userAgent': ScraperConfig.get_random_user_agent(),
+                        'acceptLanguage': 'en-US,en;q=0.9',
+                        'platform': 'macOS'
+                    })
+
+                    self.driver.execute_cdp_cmd('Emulation.setDeviceMetricsOverride', {
+                        'width': 1920,
+                        'height': 1080,
+                        'deviceScaleFactor': 2,
+                        'mobile': False
+                    })
+
+                    self.driver.execute_cdp_cmd('Emulation.setTimezoneOverride', {
+                        'timezoneId': 'America/New_York'
+                    })
+                except Exception:
+                    pass
+
+            try:
+                self.driver.execute_cdp_cmd('Page.addScriptToEvaluateOnNewDocument', {
+                    "source": ScraperConfig.STEALTH_SCRIPT
                 })
-                
-                self.driver.execute_cdp_cmd('Emulation.setDeviceMetricsOverride', {
-                    'width': 1920,
-                    'height': 1080,
-                    'deviceScaleFactor': 2,
-                    'mobile': False
-                })
-                
-                self.driver.execute_cdp_cmd('Emulation.setTimezoneOverride', {
-                    'timezoneId': 'America/New_York'
-                })
-            
-            self.driver.execute_cdp_cmd('Page.addScriptToEvaluateOnNewDocument', {
-                "source": ScraperConfig.STEALTH_SCRIPT
-            })
+            except Exception:
+                pass
             
         self.wait = WebDriverWait(self.driver, 15)
         self.actions = ActionChains(self.driver)

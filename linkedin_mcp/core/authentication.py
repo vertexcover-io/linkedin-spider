@@ -5,25 +5,57 @@ from selenium.webdriver.support import expected_conditions as EC
 from selenium.common.exceptions import TimeoutException, NoSuchElementException
 
 class LinkedInAuth:
-    def __init__(self, driver, wait, human_behavior, email=None, password=None, li_at_cookie=None):
+    def __init__(self, driver, wait, human_behavior, driver_manager, email=None, password=None, li_at_cookie=None):
         self.driver = driver
         self.wait = wait
         self.human_behavior = human_behavior
+        self.driver_manager = driver_manager
         self.email = email
         self.password = password
         self.li_at_cookie = li_at_cookie
         
     def authenticate(self):
+        try:
+            self.driver.get("https://www.linkedin.com")
+            self.human_behavior.human_delay(1, 2)
+
+            if self.driver_manager.load_cookies():
+                self.driver.refresh()
+                self.human_behavior.human_delay(2, 4)
+
+                if self._check_already_logged_in():
+                    print("[SUCCESS] Already logged in using saved cookies!")
+                    return True
+        except Exception as e:
+            print(f"[INFO] Could not load saved cookies: {e}")
+
         if self.li_at_cookie:
             if self.authenticate_with_cookie():
+                self.driver_manager.save_cookies()
                 return True
-                
+
         if self.email and self.password:
             if self.login_with_credentials():
+                self.driver_manager.save_cookies()
                 return True
-                
+
         print("[ERROR] All authentication methods failed!")
         raise Exception("Authentication failed")
+
+    def _check_already_logged_in(self):
+        try:
+            current_url = self.driver.current_url.lower()
+            if "login" in current_url or "signin" in current_url:
+                return False
+
+            if "feed" in current_url or "mynetwork" in current_url or "linkedin.com" in current_url:
+                return self.verify_feed_access()
+
+            self.driver.get("https://www.linkedin.com/feed/")
+            self.human_behavior.human_delay(2, 4)
+            return self.verify_feed_access()
+        except Exception:
+            return False
         
         
     def login_with_credentials(self):

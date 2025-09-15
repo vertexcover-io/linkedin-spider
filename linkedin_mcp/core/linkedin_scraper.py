@@ -27,8 +27,8 @@ class LinkedInScraper:
         
         self.human_behavior = HumanBehavior(self.driver, self.wait, self.actions)
         self.tracking_handler = LinkedInTrackingHandler(self.driver, self.wait, self.actions)
-        self.auth = LinkedInAuth(self.driver, self.wait, self.human_behavior, 
-                                email, password, li_at_cookie)
+        self.auth = LinkedInAuth(self.driver, self.wait, self.human_behavior,
+                                self.driver_manager, email, password, li_at_cookie)
         
         self.profile_scraper = ProfileScraper(self.driver, self.wait, self.human_behavior, self.tracking_handler)
         self.search_scraper = SearchScraper(self.driver, self.wait, self.human_behavior, self.tracking_handler)
@@ -138,3 +138,6 @@ class LinkedInScraper:
             return True
         except:
             return False
+
+    def clear_saved_session(self):
+        return self.driver_manager.clear_saved_cookies()
