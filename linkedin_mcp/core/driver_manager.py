@@ -167,7 +167,10 @@ class DriverManager:
         return self._download_and_extract_chromedriver(download_url, version)
 
     def _setup_profile_directory(self):
-        profile_base = os.path.join(os.getcwd(), ".linkedin_scraper_profiles")
+        profile_base = os.environ.get('LINKEDIN_PROFILE_DIR', os.path.join(os.getcwd(), ".linkedin_scraper_profiles"))
+        if os.path.exists('/app/data'):
+            profile_base = "/app/data/linkedin_profiles"
+
         os.makedirs(profile_base, exist_ok=True)
 
         self.profile_dir = os.path.join(profile_base, "default_profile")
