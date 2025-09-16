@@ -11,6 +11,8 @@ services:
       - HEADLESS=true
       - HOST=0.0.0.0
       - PORT=8080
+    env_file:
+      - .env
     restart: unless-stopped
 
 volumes:
