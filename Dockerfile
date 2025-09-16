@@ -53,7 +53,9 @@ RUN uv sync --frozen
 COPY linkedin_mcp/ ./linkedin_mcp/
 
 RUN useradd --create-home --shell /bin/bash app \
-    && chown -R app:app /app
+    && chown -R app:app /app \
+    && mkdir -p /app/data/linkedin_profiles \
+    && chown -R app:app /app/data
 USER app
 
 ENV CHROMEDRIVER_PATH=/usr/bin/chromedriver \
