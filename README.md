@@ -1,249 +1,196 @@
-# LinkedIn MCP Server
+# LinkedIn Scraper - The Modern LinkedIn Data Extraction Tool
 
-A high-performance LinkedIn scraper built as a Model Context Protocol (MCP) server with advanced anti-detection capabilities and human-like behavior simulation.
+A powerful, reliable, and developer-friendly LinkedIn scraping library that actually works in 205. Extract profiles, companies, connections, and conversations with ease.
 
-## Features
+## Why Another LinkedIn Scraper?
 
-- **Profile Scraping**: Extract comprehensive LinkedIn profile data including experience, education, skills, and contact information
-- **Advanced Search**: Search profiles with location and industry filters, automatic pagination support
-- **Connection Management**: Scrape incoming and outgoing connection requests with message content
-- **Anti-Detection**: Built-in stealth mode, human behavior simulation, and tracking protection
-- **MCP Integration**: Seamless integration with Claude and other MCP-compatible clients
-- **Session Management**: Persistent browser sessions with automatic recovery
-- **Robust Error Handling**: Comprehensive exception handling and retry mechanisms
+Ever tried scraping LinkedIn and hit these roadblocks?
 
-## Prerequisites
+**Anti-Bot Mechanisms Gone Wild**
 
-- Python 3.10 or higher
-- Chrome browser (latest version recommended)
-- LinkedIn account with valid session cookie
+- LinkedIn's sophisticated detection systems block most scrapers within minutes
+- Captchas appear faster than you can say "automation"
+- IP bans that last longer than your patience
 
-## Installation
+**Session Management Nightmares**
 
-1. Clone the repository:
+- Constant re-authentication breaking your workflows
+- Sessions expiring at the worst possible moments
+- Complex cookie management that makes your head spin
+
+**Outdated Open Source Tools**
+
+- Most libraries haven't been updated since LinkedIn changed their UI (again)
+- Broken selectors and deprecated APIs everywhere
+- Documentation that's more fiction than fact
+
+**Performance & Reliability Issues**
+
+- Inconsistent results that you can't depend on
+- Memory leaks that crash your long-running scrapes
+- No proper error handling or retry mechanisms
+
+## How We Solve This
+
+**Human-Like Behavior Simulation**
+
+- Advanced anti-detection techniques that mimic real user interactions
+- Randomized timing, mouse movements, and scroll patterns
+- Smart delays and jitter to avoid pattern detection
+
+**Intelligent Session Management**
+
+- Persistent sessions that survive between requests
+- Automatic session recovery and rotation
+- Multiple authentication methods (cookies, credentials)
+
+**Robust Error Handling**
+
+- Automatic retry mechanisms with exponential backoff
+- Graceful handling of rate limits and temporary blocks
+- Comprehensive logging for debugging and monitoring
+
+**Modern Architecture**
+
+- Clean, typed Python code with comprehensive documentation
+- Multiple interfaces: CLI, Python library, and MCP server
+- Configurable and extensible for your specific needs
+
+## Quick Start
+
+### Installation
+
 ```bash
-git clone https://github.com/amankumarsingh77/linkedin-mcp.git
-cd linkedin-mcp
+# Install with uv
+pip install e .
 ```
 
-2. Install using uv (recommended):
-```bash
-uv sync
-```
+## Different ways to use it
 
-Or using pip:
-```bash
-pip install -e .
-```
+### 1. Python Library
 
-3. Install ChromeDriver:
-   - Download from [ChromeDriver](https://chromedriver.chromium.org/)
-   - Add to your PATH or place in project directory
-
-## Configuration
-
-### MCP Configuration
-
-Add to your MCP configuration file (e.g., `.mcp.json`):
-
-```json
-{
-  "mcpServers": {
-    "linkedin-scraper": {
-      "command": "uv",
-      "args": ["run", "linkedin_mcp"],
-      "cwd": "/path/to/linkedin-scraper",
-      "env": {
-        "cookie": "${LINKEDIN_COOKIE}" // export your cookie through terminal as cookie:"value"
-      }
-    }
-  }
-}
-```
-
-### Obtaining LinkedIn Cookie
-
-1. Log in to LinkedIn in your browser
-2. Open Developer Tools (F12)
-3. Go to Application > Cookies > https://linkedin.com
-4. Copy the value of the `li_at` cookie
-5. Add it to your configuration
-
-## Usage
-
-### MCP Server
-
-The server provides the following tools:
-
-#### `scrape_profile`
-```json
-{
-  "profile_url": "https://www.linkedin.com/in/username"
-}
-```
-
-#### `search_profiles`
-```json
-{
-  "query": "Software Engineer",
-  "max_results": 10,
-  "location": "San Francisco",
-  "industry": "Technology"
-}
-```
-
-#### `scrape_incoming_connections`
-```json
-{
-  "max_results": 20
-}
-```
-
-#### `scrape_outgoing_connections`
-```json
-{
-  "max_results": 15
-}
-```
-
-#### `get_session_status`
-```json
-{}
-```
-
-#### `reset_session`
-```json
-{}
-```
-
-### Direct Usage
+Perfect for integration into your existing Python applications:
 
 ```python
-from linkedin_mcp.core.linkedin_scraper import LinkedInScraper
+from linkedin_scraper import LinkedInScraper, ScraperConfig
 
-scraper = LinkedInScraper(li_at_cookie="your_cookie_here")
+config = ScraperConfig(headless=True, page_load_timeout=30)
 
-# Scrape a profile
-profile = scraper.scrape_profile("https://www.linkedin.com/in/username")
+# Authenticate (use either email/password or cookie).
+# NOTE: cookie method is still under beta so use email/password for auth
+# Authentication is mostly done once and the session is saved in the chrome profile
+scraper = LinkedInScraper(
+    email="your_email@example.com",
+    password="your_password",
+    config=config
+)
 
-# Search profiles
-results = scraper.search_profiles("Software Engineer", max_results=10)
+results = scraper.search_profiles("software engineer", max_results=10)
+profile = scraper.scrape_profile("https://linkedin.com/in/someone")
+company = scraper.scrape_company("https://linkedin.com/company/tech-corp")
 
-# Get connections
-incoming = scraper.scrape_incoming_connections(max_results=20)
-outgoing = scraper.scrape_outgoing_connections(max_results=15)
+# Don't forget to clean up
+scraper.close()
 ```
 
-## Response Format
+For more examples : [examples](./examples)
 
-### Profile Data
-```json
-{
-  "name": "John Doe",
-  "headline": "Software Engineer at Tech Company",
-  "location": "San Francisco, CA",
-  "profile_url": "https://www.linkedin.com/in/johndoe",
-  "about": "Experienced software engineer...",
-  "experience": [...],
-  "education": [...],
-  "skills": [...],
-  "contact_info": {...}
-}
+### 2. Command Line Interface
+
+Great for quick data extraction and scripting:
+
+```bash
+uv run linkedin_scraper_cli search -q "product manager" -n 10 -o results.json
+uv run linkedin_scraper_cli profile -u "https://linkedin.com/in/johndoe" -o profile.json
+uv run linkedin_scraper_cli company -u "https://linkedin.com/company/openai" -o company.json
 ```
 
-### Search Results
-```json
-[
-  {
-    "name": "Jane Smith",
-    "headline": "Senior Developer",
-    "location": "New York, NY",
-    "profile_url": "https://www.linkedin.com/in/janesmith",
-    "image_url": "https://..."
-  }
-]
+### 3. MCP Server (Claude Integration)
+
+### Environment Setup
+
+Create a `.env` file:
+
+```env
+# Authentication (choose one method)
+LINKEDIN_EMAIL=your_email@example.com
+LINKEDIN_PASSWORD=your_password
+# OR
+LINKEDIN_COOKIE=your_li_at_cookie_value
+
+# Configuration
+HEADLESS=true
 ```
 
-### Connection Data
-```json
-[
-  {
-    "name": "Alice Johnson",
-    "profile_url": "https://www.linkedin.com/in/alicejohnson",
-    "headline": "Product Manager",
-    "time_sent": "2 weeks ago",
-    "message": "Hi Alice, I'd love to connect...",
-    "mutual_connections": "5 mutual connections",
-    "image_url": "https://..."
-  }
-]
+Use with Claude Code or other MCP-compatible tools:
+
+```bash
+# Start the MCP server
+uv run linkedin_scraper_mcp
+
+# Setup with claude code
+claude mcp add <app-name> --transport sse <url>
 ```
 
-## Architecture
+### 4. Docker
 
-```
-linkedin_mcp/
-├── core/                    # Core functionality
-│   ├── linkedin_scraper.py  # Main scraper class
-│   ├── session_manager.py   # Session management
-│   ├── driver_manager.py    # WebDriver setup
-│   └── authentication.py    # LinkedIn authentication
-├── scrapers/                # Specialized scrapers
-│   ├── profile_scraper.py   # Profile data extraction
-│   ├── search_scraper.py    # Search functionality
-│   └── connection_scraper.py # Connection management
-├── utils/                   # Utility modules
-│   ├── human_behavior.py    # Behavior simulation
-│   └── tracking_handler.py  # Anti-detection
-└── server.py               # MCP server implementation
+Run in a containerized environment:
+
+```bash
+# Build the image
+docker build -t linkedin-mcp .
+
+# Run with environment variables
+docker run -p <PORT> --env-file .env linkedin-mcp
 ```
 
-## Anti-Detection Features
+### 5. Docker Compose
 
-- **Stealth Mode**: Bypasses common bot detection mechanisms
-- **Human Behavior**: Randomized delays, mouse movements, and scrolling patterns
-- **User Agent Rotation**: Dynamic user agent switching
-- **Request Throttling**: Intelligent rate limiting
-- **Session Persistence**: Maintains logged-in state across requests
+```bash
+# Build and run the image
+docker compose up --build
+```
 
-## Rate Limits
+## Authentication Methods
 
-- Profile scraping: 1-2 profiles per minute
-- Search operations: 10-20 results per minute
-- Connection requests: 5-10 per minute
+### Method 1: LinkedIn Cookie
 
+1. Login to LinkedIn in your browser
+2. Open Developer Tools (F12)
+3. Go to Application/Storage → Cookies → linkedin.com
+4. Copy the `li_at` cookie value
+5. Use it in your code:
 
-## Troubleshooting
+```python
+scraper = LinkedInScraper(li_at_cookie="your_cookie_value")
+```
 
-### Common Issues
+### Method 2: Email & Password (Recommended)
 
-**Session expired**: Update your `li_at` cookie value
-
-**ChromeDriver not found**: Ensure ChromeDriver is installed and in PATH
-
-**Rate limited**: Reduce request frequency and enable stealth mode
-
-**Elements not found**: LinkedIn may have updated their UI - check for updates
-
-
-## License
-
-MIT License - see [LICENSE](LICENSE) file for details.
-
-## Disclaimer
-
-This tool is for educational and research purposes only. Users are responsible for complying with LinkedIn's Terms of Service and applicable laws. The authors are not responsible for any misuse or violations.
+```python
+scraper = LinkedInScraper(
+    email="your_email@example.com",
+    password="your_password"
+)
+```
 
 ## Contributing
 
-1. Fork the repository
-2. Create a feature branch
-3. Make your changes
-4. Add tests if applicable
-5. Submit a pull request
+We welcome contributions! Please see [CONTRIBUTING.md](CONTRIBUTING.md) for guidelines.
 
-## Support
+## License
 
-For issues and questions:
-- Create an issue on GitHub
-- Check existing documentation and troubleshooting guides
+This project is licensed under the MIT License - see the [LICENSE](LICENSE) file for details.
+
+## Disclaimer
+
+This tool is for educational and research purposes. Please:
+
+- Respect LinkedIn's Terms of Service
+- Use reasonable rate limits
+- Don't spam or harass users
+- Be responsible with the data you collect
+
+---
+
+**Ready to extract LinkedIn data like a pro?** Star this repo and start scraping!

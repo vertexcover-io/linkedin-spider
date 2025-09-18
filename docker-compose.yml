@@ -1,0 +1,16 @@
+version: "3.8"
+
+services:
+  linkedin-mcp:
+    build: .
+    ports:
+      - "8080:8080"
+    volumes:
+      - linkedin_profiles:/app/data/linkedin_profiles
+    env_file:
+      - .env
+    restart: unless-stopped
+
+volumes:
+  linkedin_profiles:
+    driver: local

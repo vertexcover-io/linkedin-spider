@@ -50,10 +50,14 @@ COPY pyproject.toml uv.lock ./
 
 RUN uv sync --frozen
 
-COPY linkedin_mcp/ ./linkedin_mcp/
+COPY src/ ./src/
+COPY cli/ ./cli/
+COPY mcp/ ./mcp/
 
 RUN useradd --create-home --shell /bin/bash app \
-    && chown -R app:app /app
+    && chown -R app:app /app\
+    && mkdir -p /app/data/linkedin_profiles \
+    && chown -R app:app /app/data
 USER app
 
 ENV CHROMEDRIVER_PATH=/usr/bin/chromedriver \
@@ -65,4 +69,4 @@ EXPOSE 8080
 HEALTHCHECK --interval=30s --timeout=10s --start-period=5s --retries=3 \
     CMD curl -f http://localhost:8080/ || exit 1
 
-CMD ["uv", "run", "linkedin_mcp_sse"]
+CMD ["uv", "run", "linkedin_scraper_mcp"]

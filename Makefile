@@ -1,38 +1,58 @@
 .PHONY: install
-install: ## Install the virtual environment and install the pre-commit hooks
-	@echo "🚀 Creating virtual environment using uv"
-	@uv sync
+install:
+	@uv sync --extra dev
 	@uv run pre-commit install
 
+.PHONY: install-prod
+install-prod:
+	@uv sync
+
 .PHONY: check
-check: ## Run code quality tools.
-	@echo "🚀 Checking lock file consistency with 'pyproject.toml'"
+check:
 	@uv lock --locked
-	@echo "🚀 Linting code: Running pre-commit"
 	@uv run pre-commit run -a
-	@echo "🚀 Static type checking: Running mypy"
 	@uv run mypy
-	@echo "🚀 Checking for obsolete dependencies: Running deptry"
-	@uv run deptry .
 
 .PHONY: test
-test: ## Test the code with pytest
-	@echo "🚀 Testing code: Running pytest"
+test:
 	@uv run python -m pytest --doctest-modules
 
 .PHONY: build
-build: clean-build ## Build wheel file
-	@echo "🚀 Creating wheel file"
+build: clean-build
 	@uvx --from build pyproject-build --installer uv
 
 .PHONY: clean-build
-clean-build: ## Clean build artifacts
-	@echo "🚀 Removing build artifacts"
+clean-build:
 	@uv run python -c "import shutil; import os; shutil.rmtree('dist') if os.path.exists('dist') else None"
+
+.PHONY: run-cli
+run-cli:
+	@uv run linkedin_scraper_cli
+
+.PHONY: run-mcp
+run-mcp:
+	@uv run linkedin_scraper_mcp
+
+.PHONY: dev-install
+dev-install: install
+
+.PHONY: clean
+clean: clean-build
+	@uv run python -c "import shutil; import os; [shutil.rmtree(d) if os.path.exists(d) else None for d in ['__pycache__', '.pytest_cache', '.mypy_cache', '.coverage']]"
+	@find . -type f -name "*.pyc" -delete
+	@find . -type d -name "__pycache__" -delete
 
 .PHONY: help
 help:
-	@uv run python -c "import re; \
-	[[print(f'\033[36m{m[0]:<20}\033[0m {m[1]}') for m in re.findall(r'^([a-zA-Z_-]+):.*?## (.*)$$', open(makefile).read(), re.M)] for makefile in ('$(MAKEFILE_LIST)').strip().split()]"
+	@echo "Available targets:"
+	@echo "  install      - Install dev dependencies and pre-commit hooks"
+	@echo "  install-prod - Install production dependencies only"
+	@echo "  dev-install  - Alias for install"
+	@echo "  check        - Run code quality tools"
+	@echo "  test         - Run tests"
+	@echo "  build        - Build wheel file"
+	@echo "  clean        - Clean build artifacts and cache"
+	@echo "  run-cli      - Run LinkedIn scraper CLI"
+	@echo "  run-mcp      - Run LinkedIn scraper MCP server"
 
 .DEFAULT_GOAL := help

@@ -1,119 +1,197 @@
+[build-system]
+requires = ["setuptools>=61.0", "wheel"]
+build-backend = "setuptools.build_meta"
+
 [project]
-name = "linkedin-mcp"
+name = "linkedin-scraper-mcp"
 version = "1.0.0"
-description = "LinkedIn MCP Server for Profile Scraping"
-authors = [{ name = "Aman Kumar Singh", email = "amankumarsingh7702@gmail.com" }]
+description = "A modern LinkedIn scraping library with CLI and MCP server"
+authors = [
+    {name = "Aman Kumar Singh", email = "amankumarsingh7702@gmail.com"}
+]
 readme = "README.md"
-keywords = ['python']
-requires-python = ">=3.10,<4.0"
+license = {text = "MIT"}
+keywords = ["linkedin", "scraping", "automation", "mcp", "cli"]
 classifiers = [
+    "Development Status :: 4 - Beta",
     "Intended Audience :: Developers",
-    "Programming Language :: Python",
+    "License :: OSI Approved :: MIT License",
     "Programming Language :: Python :: 3",
     "Programming Language :: Python :: 3.10",
     "Programming Language :: Python :: 3.11",
     "Programming Language :: Python :: 3.12",
     "Programming Language :: Python :: 3.13",
     "Topic :: Software Development :: Libraries :: Python Modules",
+    "Topic :: Internet :: WWW/HTTP :: Browsers",
+    "Topic :: Office/Business :: Professional Networks"
 ]
+requires-python = ">=3.10"
 dependencies = [
-    "requests>=2.32.5",
     "selenium>=4.35.0",
-    "psutil>=5.9.0",
+    "requests>=2.32.5",
     "python-dotenv>=1.0.0",
+    "cyclopts>=2.0.0",
+    "fastmcp>=0.1.0",
+    "psutil>=5.9.0"
+]
+
+
+[project.optional-dependencies]
+mcp = [
     "mcp>=1.0.0",
-    "fastmcp>=2.12.2",
+    "fastmcp>=2.12.2"
+]
+dev = [
+    "pytest>=7.2.0",
+    "pytest-asyncio>=0.21.0",
+    "black>=23.0.0",
+    "ruff>=0.6.9",
+    "mypy>=1.0.0",
+    "pre-commit>=2.20.0"
+]
+all = [
+    "linkedin-scraper-mcp[mcp,dev]"
 ]
 
 [project.urls]
-
-Repository = "https://github.com/amankumarsingh77/linkedin-mcp"
+Homepage = "https://github.com/vertexcover-io/linkedin-mcp-py"
+Repository = "https://github.com/vertexcover-io/linkedin-mcp-py"
+Issues = "https://github.com/vertexcover-io/linkedin-mcp-py/issues"
+Documentation = "https://github.com/vertexcover-io/linkedin-mcp-py#readme"
 
 [project.scripts]
-linkedin_mcp = "linkedin_mcp.server:cli_main"
-linkedin_mcp_sse = "linkedin_mcp.server_sse:cli_main"
-linkedin_mcp_proxy = "linkedin_mcp.server_proxy:cli_main"
+linkedin_scraper_cli = "cli.main:app"
+linkedin_scraper_mcp = "mcp.server_sse:sse_main"
 
-[tool.uv]
-dev-dependencies = [
-    "pytest>=7.2.0",
-    "pre-commit>=2.20.0",
-    "tox-uv>=1.11.3",
-    "deptry>=0.20.0",
-    "mypy>=0.991",
-    
-    "ruff>=0.6.9",
-    
-]
+[project.entry-points."console_scripts"]
+linkedin-scraper-cli = "cli.main:app"
+linkedin-scraper-mcp = "mcp.server:cli_main"
 
-[build-system]
-requires = ["setuptools >= 61.0"]
-build-backend = "setuptools.build_meta"
+[tool.setuptools.packages.find]
+where = ["src", "."]
+include = ["linkedin_scraper*", "cli*", "mcp*"]
+exclude = ["tests*", "venv*", ".venv*", "__pycache__*"]
 
-[tool.setuptools]
-py-modules = ["linkedin_mcp"]
-
-[tool.mypy]
-files = ["linkedin_mcp"]
-disallow_untyped_defs = true
-disallow_any_unimported = true
-no_implicit_optional = true
-check_untyped_defs = true
-warn_return_any = true
-warn_unused_ignores = true
-show_error_codes = true
+[tool.setuptools.package-data]
+linkedin_scraper = ["py.typed"]
+"*" = ["*.md", "*.txt", "*.yml", "*.yaml"]
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]
+python_files = ["test_*.py", "*_test.py"]
+addopts = [
+    "--strict-markers",
+    "--strict-config",
+    "--verbose"
+]
+markers = [
+    "slow: marks tests as slow (deselect with '-m \"not slow\"')",
+    "integration: marks tests as integration tests"
+]
+
+[tool.mypy]
+python_version = "3.10"
+warn_return_any = true
+warn_unused_configs = true
+disallow_untyped_defs = true
+disallow_incomplete_defs = true
+check_untyped_defs = true
+disallow_untyped_decorators = true
+no_implicit_optional = true
+warn_redundant_casts = true
+warn_unused_ignores = true
+warn_no_return = true
+warn_unreachable = true
+strict_equality = true
+files = ["src/linkedin_scraper", "cli", "mcp"]
+
+[[tool.mypy.overrides]]
+module = [
+    "selenium.*",
+    "undetected_chromedriver.*",
+    "mcp.*",
+    "cyclopts.*"
+]
+ignore_missing_imports = true
 
 [tool.ruff]
-target-version = "py39"
-line-length = 120
+target-version = "py310"
+line-length = 100
 fix = true
-
-[tool.ruff.lint]
 select = [
-    # flake8-2020
-    "YTT",
-    # flake8-bandit
-    "S",
-    # flake8-bugbear
-    "B",
-    # flake8-builtins
-    "A",
-    # flake8-comprehensions
-    "C4",
-    # flake8-debugger
-    "T10",
-    # flake8-simplify
-    "SIM",
+    # Pyflakes
+    "F",
+    # Pycodestyle
+    "E", "W",
     # isort
     "I",
-    # mccabe
-    "C90",
-    # pycodestyle
-    "E", "W",
-    # pyflakes
-    "F",
-    # pygrep-hooks
-    "PGH",
+    # flake8-bugbear
+    "B",
+    # flake8-simplify
+    "SIM",
     # pyupgrade
     "UP",
-    # ruff
-    "RUF",
+    # flake8-comprehensions
+    "C4",
+    # flake8-bandit
+    "S",
+    # flake8-builtins
+    "A",
     # tryceratops
     "TRY",
+    # ruff
+    "RUF"
 ]
 ignore = [
-    # LineTooLong
-    "E501",
-    # DoNotAssignLambda
-    "E731",
+    "E501",  # Line too long (handled by black)
+    "S101",  # Use of assert
+    "TRY003", # Avoid specifying long messages outside the exception class
+    "B008",  # Do not perform function calls in argument defaults
 ]
 
-[tool.ruff.lint.per-file-ignores]
-"tests/*" = ["S101"]
+[tool.ruff.per-file-ignores]
+"tests/**/*" = ["S101", "S106", "S108", "S311", "A001", "A002", "A003"]
 
-[tool.ruff.format]
-preview = true
+[tool.ruff.isort]
+known-first-party = ["linkedin_scraper", "cli", "mcp"]
 
+[tool.black]
+line-length = 100
+target-version = ["py310", "py311", "py312"]
+include = '\.pyi?$'
+extend-exclude = '''
+/(
+    \.eggs
+  | \.git
+  | \.hg
+  | \.mypy_cache
+  | \.tox
+  | \.venv
+  | _build
+  | buck-out
+  | build
+  | dist
+)/
+'''
+
+[tool.coverage.run]
+source = ["src/linkedin_scraper", "cli", "mcp"]
+omit = [
+    "*/tests/*",
+    "*/test_*",
+    "*/__pycache__/*"
+]
+
+[tool.coverage.report]
+exclude_lines = [
+    "pragma: no cover",
+    "def __repr__",
+    "if self.debug:",
+    "if settings.DEBUG",
+    "raise AssertionError",
+    "raise NotImplementedError",
+    "if 0:",
+    "if __name__ == .__main__.:",
+    "class .*\\bProtocol\\):",
+    "@(abc\\.)?abstractmethod",
+]
