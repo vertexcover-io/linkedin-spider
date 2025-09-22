@@ -2,6 +2,7 @@
 
 Effortless LinkedIn scraping with zero detection. Extract, export, and automate your LinkedIn data.
 
+
 ## Features
 
 - Search LinkedIn profiles with advanced filters (location, connection type, current company, position)
@@ -21,6 +22,9 @@ Effortless LinkedIn scraping with zero detection. Extract, export, and automate 
 uv sync
 ```
 
+> [!NOTE]
+> **Authentication Update:** LinkedIn has enhanced their anti-bot mechanisms, temporarily affecting cookie-based authentication. We recommend using the email/password authentication method for reliable access. We are actively working on restoring full cookie authentication support.
+
 ## Different ways to use it
 
 ### 1. Python Library
@@ -33,7 +37,6 @@ from linkedin_scraper import LinkedInScraper, ScraperConfig
 config = ScraperConfig(headless=True, page_load_timeout=30)
 
 # Authenticate (use either email/password or cookie).
-# NOTE: cookie method is still under beta so use email/password for auth
 # Authentication is mostly done once and the session is saved in the chrome profile
 scraper = LinkedInScraper(
     email="your_email@example.com",
