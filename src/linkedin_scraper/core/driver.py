@@ -14,7 +14,7 @@ from selenium.webdriver.chrome.service import Service
 from selenium.webdriver.common.action_chains import ActionChains
 from selenium.webdriver.support.ui import WebDriverWait
 
-from .config import ScraperConfig
+from linkedin_scraper.core.config import ScraperConfig
 
 
 class DriverManager:

@@ -62,10 +62,12 @@ Documentation = "https://github.com/vertexcover-io/linkedin-mcp-py#readme"
 [project.scripts]
 linkedin_scraper_cli = "cli.main:app"
 linkedin_scraper_mcp = "mcp.server_sse:sse_main"
+linkedin_scraper_std = "mcp.server_stdio:cli_main"
 
 [project.entry-points."console_scripts"]
 linkedin-scraper-cli = "cli.main:app"
-linkedin-scraper-mcp = "mcp.server:cli_main"
+linkedin-scraper-mcp = "mcp.server_sse:sse_main"
+linkedin-scraper-std = "mcp.server_stdio:cli_main"
 
 [tool.setuptools.packages.find]
 where = ["src", "."]

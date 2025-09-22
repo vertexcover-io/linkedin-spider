@@ -1,11 +1,11 @@
 """LinkedIn scraper modules."""
 
-from .base import BaseScraper
-from .company import CompanyScraper
-from .connections import ConnectionScraper
-from .conversations import ConversationScraper
-from .profile import ProfileScraper
-from .search import SearchScraper
+from linkedin_scraper.scrapers.base import BaseScraper
+from linkedin_scraper.scrapers.company import CompanyScraper
+from linkedin_scraper.scrapers.connections import ConnectionScraper
+from linkedin_scraper.scrapers.conversations import ConversationScraper
+from linkedin_scraper.scrapers.profile import ProfileScraper
+from linkedin_scraper.scrapers.search import SearchScraper
 
 __all__ = [
     "BaseScraper",

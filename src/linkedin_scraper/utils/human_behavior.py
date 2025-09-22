@@ -5,7 +5,7 @@ from typing import Any
 from selenium.webdriver.common.keys import Keys
 from selenium.webdriver.remote.webelement import WebElement
 
-from ..core.config import ScraperConfig
+from linkedin_scraper.core.config import ScraperConfig
 
 
 class HumanBehavior:

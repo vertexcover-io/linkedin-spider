@@ -1,60 +1,16 @@
-# LinkedIn Scraper - The Modern LinkedIn Data Extraction Tool
+# linkedin-scraper-mcp
 
-A powerful, reliable, and developer-friendly LinkedIn scraping library that actually works in 205. Extract profiles, companies, connections, and conversations with ease.
+Effortless LinkedIn scraping with zero detection. Extract, export, and automate your LinkedIn data.
 
-## Why Another LinkedIn Scraper?
+## Features
 
-Ever tried scraping LinkedIn and hit these roadblocks?
-
-**Anti-Bot Mechanisms Gone Wild**
-
-- LinkedIn's sophisticated detection systems block most scrapers within minutes
-- Captchas appear faster than you can say "automation"
-- IP bans that last longer than your patience
-
-**Session Management Nightmares**
-
-- Constant re-authentication breaking your workflows
-- Sessions expiring at the worst possible moments
-- Complex cookie management that makes your head spin
-
-**Outdated Open Source Tools**
-
-- Most libraries haven't been updated since LinkedIn changed their UI (again)
-- Broken selectors and deprecated APIs everywhere
-- Documentation that's more fiction than fact
-
-**Performance & Reliability Issues**
-
-- Inconsistent results that you can't depend on
-- Memory leaks that crash your long-running scrapes
-- No proper error handling or retry mechanisms
-
-## How We Solve This
-
-**Human-Like Behavior Simulation**
-
-- Advanced anti-detection techniques that mimic real user interactions
-- Randomized timing, mouse movements, and scroll patterns
-- Smart delays and jitter to avoid pattern detection
-
-**Intelligent Session Management**
-
-- Persistent sessions that survive between requests
-- Automatic session recovery and rotation
-- Multiple authentication methods (cookies, credentials)
-
-**Robust Error Handling**
-
-- Automatic retry mechanisms with exponential backoff
-- Graceful handling of rate limits and temporary blocks
-- Comprehensive logging for debugging and monitoring
-
-**Modern Architecture**
-
-- Clean, typed Python code with comprehensive documentation
-- Multiple interfaces: CLI, Python library, and MCP server
-- Configurable and extensible for your specific needs
+- Search LinkedIn profiles with advanced filters (location, connection type, current company, position)
+- Extract complete profile information (experience, education, skills, contact details)
+- Get company details and information
+- Retrieve incoming and outgoing connection requests
+- Send connection requests to profiles
+- Get conversations list and detailed conversation history
+- Built-in anti-detection and session management
 
 ## Quick Start
 
@@ -62,7 +18,7 @@ Ever tried scraping LinkedIn and hit these roadblocks?
 
 ```bash
 # Install with uv
-pip install e .
+uv sync
 ```
 
 ## Different ways to use it
@@ -105,11 +61,9 @@ uv run linkedin_scraper_cli profile -u "https://linkedin.com/in/johndoe" -o prof
 uv run linkedin_scraper_cli company -u "https://linkedin.com/company/openai" -o company.json
 ```
 
-### 3. MCP Server (Claude Integration)
+### 3. MCP Server
 
-### Environment Setup
-
-Create a `.env` file:
+Set up environment variables in `.env` file:
 
 ```env
 # Authentication (choose one method)
@@ -122,34 +76,101 @@ LINKEDIN_COOKIE=your_li_at_cookie_value
 HEADLESS=true
 ```
 
-Use with Claude Code or other MCP-compatible tools:
+Start the MCP server:
 
 ```bash
-# Start the MCP server
 uv run linkedin_scraper_mcp
-
-# Setup with claude code
-claude mcp add <app-name> --transport sse <url>
+# Copy the server url to use
 ```
 
-### 4. Docker
-
-Run in a containerized environment:
+#### Claude Code Integration
 
 ```bash
-# Build the image
-docker build -t linkedin-mcp .
-
-# Run with environment variables
-docker run -p <PORT> --env-file .env linkedin-mcp
+# Add to Claude Code
+claude mcp add linkedin-scraper --transport sse <server-url> 
+# Example server URL format: http://localhost:8080/sse
 ```
 
-### 5. Docker Compose
+#### Claude Desktop Integration
+
+Add to your Claude Desktop configuration file:
+
+**Windows**: `%APPDATA%\Claude\claude_desktop_config.json`
+**macOS**: `~/Library/Application Support/Claude/claude_desktop_config.json`
+**Linux**: `~/.config/Claude/claude_desktop_config.json`
+
+##### Option 1: Docker (Recommended)
+
+The Docker approach provides reliable, isolated execution with all dependencies included.
+
+First, build the Docker image:
+```bash
+# Build the stdio server image
+docker build -f Dockerfile.stdio -t linkedin-mcp-stdio .
+```
+
+Then add this to your Claude Desktop configuration:
+```json
+{
+  "mcpServers": {
+    "linkedin-scraper": {
+      "command": "docker",
+      "args": [
+        "run", "--rm", "-i",
+        "-e", "LINKEDIN_EMAIL=your_email@example.com",
+        "-e", "LINKEDIN_PASSWORD=your_password",
+        "-e", "HEADLESS=true",
+        "linkedin-mcp-stdio"
+      ]
+    }
+  }
+}
+```
+
+##### Option 2: Direct Installation (Alternative)
+
+If you prefer not to use Docker, you can install directly:
 
 ```bash
-# Build and run the image
-docker compose up --build
+# Install globally
+uv tool install --editable .
 ```
+
+Then configure Claude Desktop:
+```json
+{
+  "mcpServers": {
+    "linkedin-scraper": {
+      "command": "linkedin_scraper_std",
+      "env": {
+        "LINKEDIN_EMAIL": "your_email@example.com",
+        "LINKEDIN_PASSWORD": "your_password",
+        "HEADLESS": "true"
+      }
+    }
+  }
+}
+```
+
+
+
+### 4. Docker for Development & Testing
+
+If you want to run the SSE server or test the application in Docker:
+
+#### SSE Server
+```bash
+# Build and run SSE server
+docker build -t linkedin-mcp-sse .
+docker run -p 8080:8080 --env-file .env linkedin-mcp-sse
+```
+
+#### STDIO Server
+```bash
+docker build -f Dockerfile.stdio -t linkedin-mcp-stdio .
+docker run --rm -i --env-file .env linkedin-mcp-stdio
+```
+
 
 ## Authentication Methods
 
@@ -184,7 +205,7 @@ This project is licensed under the MIT License - see the [LICENSE](LICENSE) file
 
 ## Disclaimer
 
-This tool is for educational and research purposes. Please:
+This tool is for personal use only. Please:
 
 - Respect LinkedIn's Terms of Service
 - Use reasonable rate limits

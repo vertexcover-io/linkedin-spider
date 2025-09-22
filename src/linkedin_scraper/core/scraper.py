@@ -4,16 +4,16 @@ import signal
 import sys
 from typing import Any
 
-from ..scrapers.company import CompanyScraper
-from ..scrapers.connections import ConnectionScraper
-from ..scrapers.conversations import ConversationScraper
-from ..scrapers.profile import ProfileScraper
-from ..scrapers.search import SearchScraper
-from ..utils.human_behavior import HumanBehavior
-from ..utils.tracking import TrackingHandler
-from .auth import AuthManager
-from .config import ScraperConfig
-from .driver import DriverManager
+from linkedin_scraper.scrapers.company import CompanyScraper
+from linkedin_scraper.scrapers.connections import ConnectionScraper
+from linkedin_scraper.scrapers.conversations import ConversationScraper
+from linkedin_scraper.scrapers.profile import ProfileScraper
+from linkedin_scraper.scrapers.search import SearchScraper
+from linkedin_scraper.utils.human_behavior import HumanBehavior
+from linkedin_scraper.utils.tracking import TrackingHandler
+from linkedin_scraper.core.auth import AuthManager
+from linkedin_scraper.core.config import ScraperConfig
+from linkedin_scraper.core.driver import DriverManager
 
 
 class LinkedInScraper:

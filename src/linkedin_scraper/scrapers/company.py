@@ -4,8 +4,8 @@ from typing import Any
 from selenium.common.exceptions import NoSuchElementException
 from selenium.webdriver.common.by import By
 
-from ..utils.pattern_detector import PatternDetector
-from .base import BaseScraper
+from linkedin_scraper.utils.pattern_detector import PatternDetector
+from linkedin_scraper.scrapers.base import BaseScraper
 
 
 class CompanyScraper(BaseScraper):
