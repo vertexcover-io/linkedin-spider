@@ -19,3 +19,5 @@ This scraper uses several sophisticated techniques to avoid LinkedIn's automated
 - These techniques work together to create a scraping environment that operates within LinkedIn's acceptable use boundaries while providing reliable data extraction capabilities.
 
 ## Flow-Diagram
+
+<img width="2301" height="1224" alt="diagram-export-9-22-2025-11_34_38-AM" src="https://github.com/user-attachments/assets/30cb7ad4-6b35-4218-b22d-477ea9d76617" />
