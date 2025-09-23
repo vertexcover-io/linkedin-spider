@@ -7,7 +7,7 @@ from selenium.webdriver.common.by import By
 from selenium.webdriver.remote.webelement import WebElement
 from selenium.webdriver.support import expected_conditions as EC
 
-from .base import BaseScraper
+from linkedin_scraper.scrapers.base import BaseScraper
 
 
 class ConversationScraper(BaseScraper):

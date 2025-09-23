@@ -228,17 +228,8 @@ async def send_connection_request(profile_url: str, note: str | None = None) -> 
         return f"Error sending connection request to {profile_url}: {e!s}"
 
 
-def main():
-    logger.info("Starting LinkedIn MCP SSE Server...")
-
-    host = os.getenv("HOST", "127.0.0.1")
-    port = int(os.getenv("PORT", "8000"))
-
-    for i, arg in enumerate(sys.argv):
-        if arg == "--host" and i + 1 < len(sys.argv):
-            host = sys.argv[i + 1]
-        elif arg == "--port" and i + 1 < len(sys.argv):
-            port = int(sys.argv[i + 1])
+def configure_mcp_server(transport: str, **kwargs):
+    logger.info(f"Starting LinkedIn MCP {transport.upper()} Server...")
 
     try:
         logger.info("Initializing LinkedIn scraper...")
@@ -249,12 +240,33 @@ def main():
         logger.info("Server will start but scraper will be inactive")
 
     logger.info(
-        "FastMCP SSE Server initialized with tools: scrape_profile, search_profiles, scrape_company, scrape_incoming_connections, scrape_outgoing_connections, scrape_conversations_list, scrape_conversation, send_connection_request, get_session_status, reset_session"
+        f"FastMCP {transport.upper()} Server initialized with tools: scrape_profile, search_profiles, scrape_company, scrape_incoming_connections, scrape_outgoing_connections, scrape_conversations_list, scrape_conversation, send_connection_request, get_session_status, reset_session"
     )
-    logger.info("Server is ready and waiting for SSE connections...")
 
-    logger.info(f"Starting server on {host}:{port}")
-    app.run(transport="sse", host=host, port=port)
+    if transport in ["sse", "http", "streamable-http"]:
+        host = kwargs.get("host", "127.0.0.1")
+        port = kwargs.get("port", 8000)
+        logger.info(f"Server is ready and waiting for {transport} connections...")
+        logger.info(f"Starting server on {host}:{port}")
+        app.run(transport=transport, host=host, port=port)
+    elif transport == "stdio":
+        logger.info("Server is ready and waiting for stdio connections...")
+        app.run(transport="stdio")
+    else:
+        raise ValueError(f"Unsupported transport: {transport}")
+
+
+def main():
+    host = os.getenv("HOST", "127.0.0.1")
+    port = int(os.getenv("PORT", "8000"))
+
+    for i, arg in enumerate(sys.argv):
+        if arg == "--host" and i + 1 < len(sys.argv):
+            host = sys.argv[i + 1]
+        elif arg == "--port" and i + 1 < len(sys.argv):
+            port = int(sys.argv[i + 1])
+
+    configure_mcp_server("sse", host=host, port=port)
 
 
 def sse_main():

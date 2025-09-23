@@ -1,69 +1,32 @@
-# LinkedIn Scraper - The Modern LinkedIn Data Extraction Tool
+# linkedin-scraper-mcp
 
-A powerful, reliable, and developer-friendly LinkedIn scraping library that actually works in 205. Extract profiles, companies, connections, and conversations with ease.
+Effortless LinkedIn scraping with zero detection. Extract, export, and automate your LinkedIn data.
 
-## Why Another LinkedIn Scraper?
 
-Ever tried scraping LinkedIn and hit these roadblocks?
+## Features
 
-**Anti-Bot Mechanisms Gone Wild**
-
-- LinkedIn's sophisticated detection systems block most scrapers within minutes
-- Captchas appear faster than you can say "automation"
-- IP bans that last longer than your patience
-
-**Session Management Nightmares**
-
-- Constant re-authentication breaking your workflows
-- Sessions expiring at the worst possible moments
-- Complex cookie management that makes your head spin
-
-**Outdated Open Source Tools**
-
-- Most libraries haven't been updated since LinkedIn changed their UI (again)
-- Broken selectors and deprecated APIs everywhere
-- Documentation that's more fiction than fact
-
-**Performance & Reliability Issues**
-
-- Inconsistent results that you can't depend on
-- Memory leaks that crash your long-running scrapes
-- No proper error handling or retry mechanisms
-
-## How We Solve This
-
-**Human-Like Behavior Simulation**
-
-- Advanced anti-detection techniques that mimic real user interactions
-- Randomized timing, mouse movements, and scroll patterns
-- Smart delays and jitter to avoid pattern detection
-
-**Intelligent Session Management**
-
-- Persistent sessions that survive between requests
-- Automatic session recovery and rotation
-- Multiple authentication methods (cookies, credentials)
-
-**Robust Error Handling**
-
-- Automatic retry mechanisms with exponential backoff
-- Graceful handling of rate limits and temporary blocks
-- Comprehensive logging for debugging and monitoring
-
-**Modern Architecture**
-
-- Clean, typed Python code with comprehensive documentation
-- Multiple interfaces: CLI, Python library, and MCP server
-- Configurable and extensible for your specific needs
+- Search LinkedIn profiles with advanced filters (location, connection type, current company, position)
+- Extract complete profile information (experience, education, skills, contact details)
+- Get company details and information
+- Retrieve incoming and outgoing connection requests
+- Send connection requests to profiles
+- Get conversations list and detailed conversation history
+- Built-in anti-detection and session management
 
 ## Quick Start
 
 ### Installation
 
 ```bash
+# Clone the repo
+github.com/vertexcover-io/linkedin-mcp-py
+cd linkedin-mcp-py
 # Install with uv
-pip install e .
+uv sync
 ```
+
+> [!NOTE]
+> **Authentication Update:** LinkedIn has enhanced their anti-bot mechanisms, temporarily affecting cookie-based authentication. We recommend using the email/password authentication method for reliable access. We are actively working on restoring full cookie authentication support.
 
 ## Different ways to use it
 
@@ -75,20 +38,95 @@ Perfect for integration into your existing Python applications:
 from linkedin_scraper import LinkedInScraper, ScraperConfig
 
 config = ScraperConfig(headless=True, page_load_timeout=30)
+```
 
+```python
 # Authenticate (use either email/password or cookie).
-# NOTE: cookie method is still under beta so use email/password for auth
 # Authentication is mostly done once and the session is saved in the chrome profile
 scraper = LinkedInScraper(
     email="your_email@example.com",
     password="your_password",
     config=config
 )
+```
 
+```python
+# Search for profiles
 results = scraper.search_profiles("software engineer", max_results=10)
-profile = scraper.scrape_profile("https://linkedin.com/in/someone")
-company = scraper.scrape_company("https://linkedin.com/company/tech-corp")
+```
 
+**Output sample:**
+```json
+[
+  {
+    "name": "John Doe",
+    "title": "Senior Software Engineer at Google",
+    "location": "San Francisco, CA",
+    "profile_url": "https://linkedin.com/in/johndoe",
+    "connections": "500+"
+  },
+  {
+    "name": "Jane Smith",
+    "title": "Software Engineer at Microsoft",
+    "location": "Seattle, WA",
+    "profile_url": "https://linkedin.com/in/janesmith",
+    "connections": "200+"
+  }
+]
+```
+
+```python
+# Scrape individual profile
+profile = scraper.scrape_profile("https://linkedin.com/in/someone")
+```
+
+**Output sample:**
+```json
+{
+  "name": "John Doe",
+  "title": "Senior Software Engineer",
+  "location": "San Francisco, CA",
+  "about": "Passionate software engineer with 8+ years of experience...",
+  "experience": [
+    {
+      "title": "Senior Software Engineer",
+      "company": "Google",
+      "duration": "2021 - Present",
+      "description": "Leading backend development for search infrastructure..."
+    }
+  ],
+  "education": [
+    {
+      "school": "Stanford University",
+      "degree": "BS Computer Science",
+      "years": "2013 - 2017"
+    }
+  ],
+  "skills": ["Python", "Java", "Kubernetes", "AWS"]
+}
+```
+
+```python
+# Scrape company information
+company = scraper.scrape_company("https://linkedin.com/company/tech-corp")
+```
+
+**Output sample:**
+```json
+{
+  "name": "TechCorp Inc",
+  "industry": "Software Development",
+  "company_size": "1,001-5,000 employees",
+  "headquarters": "San Francisco, CA",
+  "founded": "2010",
+  "specialties": ["Cloud Computing", "AI/ML", "Data Analytics"],
+  "description": "Leading technology company focused on enterprise solutions...",
+  "website": "https://techcorp.com",
+  "follower_count": "45,230"
+}
+```
+
+```python
 # Don't forget to clean up
 scraper.close()
 ```
@@ -105,11 +143,9 @@ uv run linkedin_scraper_cli profile -u "https://linkedin.com/in/johndoe" -o prof
 uv run linkedin_scraper_cli company -u "https://linkedin.com/company/openai" -o company.json
 ```
 
-### 3. MCP Server (Claude Integration)
+### 3. MCP Server
 
-### Environment Setup
-
-Create a `.env` file:
+Set up environment variables in `.env` file:
 
 ```env
 # Authentication (choose one method)
@@ -120,36 +156,129 @@ LINKEDIN_COOKIE=your_li_at_cookie_value
 
 # Configuration
 HEADLESS=true
+
+# Transport (optional, defaults to stdio)
+TRANSPORT=sse
+HOST=127.0.0.1
+PORT=8000
 ```
 
-Use with Claude Code or other MCP-compatible tools:
+Start the MCP server:
 
 ```bash
-# Start the MCP server
-uv run linkedin_scraper_mcp
+# Show available transport options
+uv run linkedin_mcp
 
-# Setup with claude code
-claude mcp add <app-name> --transport sse <url>
+# Start with specific transport
+uv run linkedin_mcp sse
+uv run linkedin_mcp http --host 0.0.0.0 --port 9000
+uv run linkedin_mcp stdio
+
+# Or use environment variables
+TRANSPORT=sse uv run linkedin_mcp
 ```
 
-### 4. Docker
-
-Run in a containerized environment:
+#### Claude Code Integration
 
 ```bash
-# Build the image
+# Add to Claude Code
+claude mcp add linkedin-scraper --transport sse <server-url> 
+# Example server URL format: http://localhost:8080/sse
+```
+
+#### Claude Desktop Integration
+
+Add to your Claude Desktop configuration file:
+
+**Windows**: `%APPDATA%\Claude\claude_desktop_config.json`
+**macOS**: `~/Library/Application Support/Claude/claude_desktop_config.json`
+**Linux**: `~/.config/Claude/claude_desktop_config.json`
+
+##### Option 1: Docker (Recommended)
+
+The Docker approach provides reliable, isolated execution with all dependencies included.
+
+First, build the Docker image:
+```bash
+# Build the stdio server image
+docker build -f Dockerfile.stdio -t linkedin-mcp-stdio .
+```
+
+Then add this to your Claude Desktop configuration:
+```json
+{
+  "mcpServers": {
+    "linkedin-scraper": {
+      "command": "docker",
+      "args": [
+        "run", "--rm", "-i",
+        "-e", "LINKEDIN_EMAIL=your_email@example.com",
+        "-e", "LINKEDIN_PASSWORD=your_password",
+        "-e", "HEADLESS=true",
+        "-e", "TRANSPORT=stdio",
+        "linkedin-mcp-stdio"
+      ]
+    }
+  }
+}
+```
+
+##### Option 2: Direct Installation (Alternative)
+
+If you prefer not to use Docker, you can install directly:
+
+```bash
+# Install globally
+uv tool install --editable .
+```
+
+Then configure Claude Desktop:
+```json
+{
+  "mcpServers": {
+    "linkedin-scraper": {
+      "command": "linkedin-mcp",
+      "args": ["stdio"],
+      "env": {
+        "LINKEDIN_EMAIL": "your_email@example.com",
+        "LINKEDIN_PASSWORD": "your_password",
+        "HEADLESS": "true"
+      }
+    }
+  }
+}
+```
+
+
+
+## Docker Development & Testing
+
+For development and testing with Docker, you can use a single image with different transport configurations:
+
+### Build the Docker Image
+
+```bash
+# Build once for all transport types
 docker build -t linkedin-mcp .
-
-# Run with environment variables
-docker run -p <PORT> --env-file .env linkedin-mcp
 ```
 
-### 5. Docker Compose
+### Run with Different Transports
 
+#### SSE Server
 ```bash
-# Build and run the image
-docker compose up --build
+docker run -p 8000:8000 -e TRANSPORT=sse --env-file .env linkedin-mcp
 ```
+
+#### HTTP Server
+```bash
+docker run -p 8000:8000 -e TRANSPORT=http --env-file .env linkedin-mcp
+```
+
+#### STDIO Server
+```bash
+docker run --rm -i -e TRANSPORT=stdio --env-file .env linkedin-mcp
+```
+
 
 ## Authentication Methods
 
@@ -184,7 +313,7 @@ This project is licensed under the MIT License - see the [LICENSE](LICENSE) file
 
 ## Disclaimer
 
-This tool is for educational and research purposes. Please:
+This tool is for personal use only. Please:
 
 - Respect LinkedIn's Terms of Service
 - Use reasonable rate limits
