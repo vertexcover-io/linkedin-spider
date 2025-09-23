@@ -18,6 +18,9 @@ Effortless LinkedIn scraping with zero detection. Extract, export, and automate 
 ### Installation
 
 ```bash
+# Clone the repo
+github.com/vertexcover-io/linkedin-mcp-py
+cd linkedin-mcp-py
 # Install with uv
 uv sync
 ```
@@ -35,7 +38,9 @@ Perfect for integration into your existing Python applications:
 from linkedin_scraper import LinkedInScraper, ScraperConfig
 
 config = ScraperConfig(headless=True, page_load_timeout=30)
+```
 
+```python
 # Authenticate (use either email/password or cookie).
 # Authentication is mostly done once and the session is saved in the chrome profile
 scraper = LinkedInScraper(
@@ -43,11 +48,85 @@ scraper = LinkedInScraper(
     password="your_password",
     config=config
 )
+```
 
+```python
+# Search for profiles
 results = scraper.search_profiles("software engineer", max_results=10)
-profile = scraper.scrape_profile("https://linkedin.com/in/someone")
-company = scraper.scrape_company("https://linkedin.com/company/tech-corp")
+```
 
+**Output sample:**
+```json
+[
+  {
+    "name": "John Doe",
+    "title": "Senior Software Engineer at Google",
+    "location": "San Francisco, CA",
+    "profile_url": "https://linkedin.com/in/johndoe",
+    "connections": "500+"
+  },
+  {
+    "name": "Jane Smith",
+    "title": "Software Engineer at Microsoft",
+    "location": "Seattle, WA",
+    "profile_url": "https://linkedin.com/in/janesmith",
+    "connections": "200+"
+  }
+]
+```
+
+```python
+# Scrape individual profile
+profile = scraper.scrape_profile("https://linkedin.com/in/someone")
+```
+
+**Output sample:**
+```json
+{
+  "name": "John Doe",
+  "title": "Senior Software Engineer",
+  "location": "San Francisco, CA",
+  "about": "Passionate software engineer with 8+ years of experience...",
+  "experience": [
+    {
+      "title": "Senior Software Engineer",
+      "company": "Google",
+      "duration": "2021 - Present",
+      "description": "Leading backend development for search infrastructure..."
+    }
+  ],
+  "education": [
+    {
+      "school": "Stanford University",
+      "degree": "BS Computer Science",
+      "years": "2013 - 2017"
+    }
+  ],
+  "skills": ["Python", "Java", "Kubernetes", "AWS"]
+}
+```
+
+```python
+# Scrape company information
+company = scraper.scrape_company("https://linkedin.com/company/tech-corp")
+```
+
+**Output sample:**
+```json
+{
+  "name": "TechCorp Inc",
+  "industry": "Software Development",
+  "company_size": "1,001-5,000 employees",
+  "headquarters": "San Francisco, CA",
+  "founded": "2010",
+  "specialties": ["Cloud Computing", "AI/ML", "Data Analytics"],
+  "description": "Leading technology company focused on enterprise solutions...",
+  "website": "https://techcorp.com",
+  "follower_count": "45,230"
+}
+```
+
+```python
 # Don't forget to clean up
 scraper.close()
 ```
@@ -77,13 +156,26 @@ LINKEDIN_COOKIE=your_li_at_cookie_value
 
 # Configuration
 HEADLESS=true
+
+# Transport (optional, defaults to stdio)
+TRANSPORT=sse
+HOST=127.0.0.1
+PORT=8000
 ```
 
 Start the MCP server:
 
 ```bash
-uv run linkedin_scraper_mcp
-# Copy the server url to use
+# Show available transport options
+uv run linkedin_mcp
+
+# Start with specific transport
+uv run linkedin_mcp sse
+uv run linkedin_mcp http --host 0.0.0.0 --port 9000
+uv run linkedin_mcp stdio
+
+# Or use environment variables
+TRANSPORT=sse uv run linkedin_mcp
 ```
 
 #### Claude Code Integration
@@ -123,6 +215,7 @@ Then add this to your Claude Desktop configuration:
         "-e", "LINKEDIN_EMAIL=your_email@example.com",
         "-e", "LINKEDIN_PASSWORD=your_password",
         "-e", "HEADLESS=true",
+        "-e", "TRANSPORT=stdio",
         "linkedin-mcp-stdio"
       ]
     }
@@ -144,7 +237,8 @@ Then configure Claude Desktop:
 {
   "mcpServers": {
     "linkedin-scraper": {
-      "command": "linkedin_scraper_std",
+      "command": "linkedin-mcp",
+      "args": ["stdio"],
       "env": {
         "LINKEDIN_EMAIL": "your_email@example.com",
         "LINKEDIN_PASSWORD": "your_password",
@@ -157,21 +251,32 @@ Then configure Claude Desktop:
 
 
 
-### 4. Docker for Development & Testing
+## Docker Development & Testing
 
-If you want to run the SSE server or test the application in Docker:
+For development and testing with Docker, you can use a single image with different transport configurations:
+
+### Build the Docker Image
+
+```bash
+# Build once for all transport types
+docker build -t linkedin-mcp .
+```
+
+### Run with Different Transports
 
 #### SSE Server
 ```bash
-# Build and run SSE server
-docker build -t linkedin-mcp-sse .
-docker run -p 8080:8080 --env-file .env linkedin-mcp-sse
+docker run -p 8000:8000 -e TRANSPORT=sse --env-file .env linkedin-mcp
+```
+
+#### HTTP Server
+```bash
+docker run -p 8000:8000 -e TRANSPORT=http --env-file .env linkedin-mcp
 ```
 
 #### STDIO Server
 ```bash
-docker build -f Dockerfile.stdio -t linkedin-mcp-stdio .
-docker run --rm -i --env-file .env linkedin-mcp-stdio
+docker run --rm -i -e TRANSPORT=stdio --env-file .env linkedin-mcp
 ```
 
 
