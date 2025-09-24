@@ -2,7 +2,7 @@
 Example: Profile Scraping
 """
 
-from linkedin_scraper import LinkedinSpider, ScraperConfig
+from linkedin_spider import LinkedinSpider, ScraperConfig
 
 
 def scrape_profile_example():

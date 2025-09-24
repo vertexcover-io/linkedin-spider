@@ -17,9 +17,9 @@ __pycache__/
 *.py[cod]
 *$py.class
 
-.linkedin_scraper_profiles/*
+.linkedin_spider_profiles/*
 demo/*
-examples/.linkedin_scraper_profiles/*
+examples/.linkedin_spider_profiles/*
 # C extensions
 *.so
 

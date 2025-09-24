@@ -4,16 +4,16 @@ import signal
 import sys
 from typing import Any
 
-from linkedin_scraper.scrapers.company import CompanyScraper
-from linkedin_scraper.scrapers.connections import ConnectionScraper
-from linkedin_scraper.scrapers.conversations import ConversationScraper
-from linkedin_scraper.scrapers.profile import ProfileScraper
-from linkedin_scraper.scrapers.search import SearchScraper
-from linkedin_scraper.utils.human_behavior import HumanBehavior
-from linkedin_scraper.utils.tracking import TrackingHandler
-from linkedin_scraper.core.auth import AuthManager
-from linkedin_scraper.core.config import ScraperConfig
-from linkedin_scraper.core.driver import DriverManager
+from linkedin_spider.scrapers.company import CompanyScraper
+from linkedin_spider.scrapers.connections import ConnectionScraper
+from linkedin_spider.scrapers.conversations import ConversationScraper
+from linkedin_spider.scrapers.profile import ProfileScraper
+from linkedin_spider.scrapers.search import SearchScraper
+from linkedin_spider.utils.human_behavior import HumanBehavior
+from linkedin_spider.utils.tracking import TrackingHandler
+from linkedin_spider.core.auth import AuthManager
+from linkedin_spider.core.config import ScraperConfig
+from linkedin_spider.core.driver import DriverManager
 
 
 class LinkedinSpider:
@@ -65,7 +65,7 @@ class LinkedinSpider:
                         cmdline = proc.info["cmdline"]
                         if cmdline and isinstance(cmdline, list):
                             cmdline_str = " ".join(cmdline)
-                            if "linkedin_scraper_profiles" in cmdline_str:
+                            if "linkedin_spider_profiles" in cmdline_str:
                                 process = psutil.Process(proc.info["pid"])
                                 process.terminate()
                                 try:

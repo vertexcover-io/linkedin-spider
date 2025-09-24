@@ -2,7 +2,7 @@
 Example: Basic Usage
 """
 
-from linkedin_scraper import LinkedinSpider, ScraperConfig
+from linkedin_spider import LinkedinSpider, ScraperConfig
 
 
 def basic_example():

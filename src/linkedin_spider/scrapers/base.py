@@ -3,8 +3,8 @@ from abc import ABC
 from selenium.webdriver.chrome.webdriver import WebDriver
 from selenium.webdriver.support.ui import WebDriverWait
 
-from linkedin_scraper.utils.human_behavior import HumanBehavior
-from linkedin_scraper.utils.tracking import TrackingHandler
+from linkedin_spider.utils.human_behavior import HumanBehavior
+from linkedin_spider.utils.tracking import TrackingHandler
 
 
 class BaseScraper(ABC):

@@ -4,8 +4,8 @@ from selenium.common.exceptions import NoSuchElementException, TimeoutException
 from selenium.webdriver.common.by import By
 from selenium.webdriver.support import expected_conditions as EC
 
-from linkedin_scraper.utils.human_behavior import HumanBehavior
-from linkedin_scraper.core.driver import DriverManager
+from linkedin_spider.utils.human_behavior import HumanBehavior
+from linkedin_spider.core.driver import DriverManager
 
 
 class AuthManager:

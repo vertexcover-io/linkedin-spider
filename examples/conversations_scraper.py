@@ -4,7 +4,7 @@ Example: Conversations Scraping
 
 import asyncio
 
-from linkedin_scraper import LinkedinSpider, ScraperConfig
+from linkedin_spider import LinkedinSpider, ScraperConfig
 
 
 async def scrape_conversations_list_example():

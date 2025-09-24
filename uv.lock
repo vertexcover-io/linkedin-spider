@@ -686,7 +686,6 @@ all = [
     { name = "black" },
     { name = "cyclopts" },
     { name = "fastmcp" },
-    { name = "mcp" },
     { name = "mypy" },
     { name = "pre-commit" },
     { name = "pytest" },
@@ -705,8 +704,8 @@ dev = [
     { name = "ruff" },
 ]
 mcp = [
+    { name = "cyclopts" },
     { name = "fastmcp" },
-    { name = "mcp" },
 ]
 
 [package.dev-dependencies]
@@ -723,10 +722,9 @@ requires-dist = [
     { name = "black", marker = "extra == 'dev'", specifier = ">=23.0.0" },
     { name = "cyclopts", marker = "extra == 'all'", specifier = ">=2.0.0" },
     { name = "cyclopts", marker = "extra == 'cli'", specifier = ">=2.0.0" },
+    { name = "cyclopts", marker = "extra == 'mcp'", specifier = ">=2.0.0" },
     { name = "fastmcp", marker = "extra == 'all'", specifier = ">=0.1.0" },
     { name = "fastmcp", marker = "extra == 'mcp'", specifier = ">=0.1.0" },
-    { name = "mcp", marker = "extra == 'all'", specifier = ">=1.0.0" },
-    { name = "mcp", marker = "extra == 'mcp'", specifier = ">=1.0.0" },
     { name = "mypy", marker = "extra == 'all'", specifier = ">=1.0.0" },
     { name = "mypy", marker = "extra == 'dev'", specifier = ">=1.0.0" },
     { name = "pre-commit", marker = "extra == 'all'", specifier = ">=2.20.0" },

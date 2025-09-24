@@ -7,8 +7,8 @@ from selenium.webdriver.remote.webelement import WebElement
 from selenium.webdriver.support import expected_conditions as EC
 from selenium.webdriver.support.ui import WebDriverWait
 
-from linkedin_scraper.scrapers.base import BaseScraper
-from linkedin_scraper.scrapers.search_filters import SearchFilterHandler
+from linkedin_spider.scrapers.base import BaseScraper
+from linkedin_spider.scrapers.search_filters import SearchFilterHandler
 
 
 class SearchScraper(BaseScraper):

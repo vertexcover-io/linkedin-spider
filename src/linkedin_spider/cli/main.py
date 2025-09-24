@@ -11,7 +11,7 @@ from typing import Annotated
 from cyclopts import App, Parameter
 from dotenv import load_dotenv
 
-from linkedin_scraper import LinkedinSpider, ScraperConfig
+from linkedin_spider import LinkedinSpider, ScraperConfig
 
 load_dotenv()
 

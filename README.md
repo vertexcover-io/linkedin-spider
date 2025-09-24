@@ -17,9 +17,27 @@ Effortless Linkedin scraping with zero detection. Extract, export, and automate 
 
 ### Installation
 
+Choose your preferred installation method:
+
+#### Option 1: pip (Recommended for general use)
+```bash
+# For Python library only
+pip install linkedin-spider
+
+# For CLI usage
+pip install linkedin-spider[cli]
+
+# For MCP server usage
+pip install linkedin-spider[mcp]
+
+# For all features (CLI + MCP + library)
+pip install linkedin-spider[all]
+```
+
+#### Option 2: Development setup with uv
 ```bash
 # Clone the repo
-github.com/vertexcover-io/linkedin-spider
+git clone https://github.com/vertexcover-io/linkedin-spider
 cd linkedin-spider
 # Install with uv
 uv sync
@@ -35,7 +53,7 @@ uv sync
 Perfect for integration into your existing Python applications:
 
 ```python
-from linkedin_scraper import LinkedinSpider, ScraperConfig
+from linkedin_spider import LinkedinSpider, ScraperConfig
 
 config = ScraperConfig(headless=True, page_load_timeout=30)
 ```
@@ -138,6 +156,12 @@ For more examples : [examples](./examples)
 Great for quick data extraction and scripting:
 
 ```bash
+# If installed via pip
+linkedin-spider-cli search -q "product manager" -n 10 -o results.json
+linkedin-spider-cli profile -u "https://linkedin.com/in/johndoe" -o profile.json
+linkedin-spider-cli company -u "https://linkedin.com/company/openai" -o company.json
+
+# If using development setup
 uv run linkedin-spider-cli search -q "product manager" -n 10 -o results.json
 uv run linkedin-spider-cli profile -u "https://linkedin.com/in/johndoe" -o profile.json
 uv run linkedin-spider-cli company -u "https://linkedin.com/company/openai" -o company.json
@@ -166,16 +190,29 @@ PORT=8000
 Start the MCP server:
 
 ```bash
+# If installed via pip
 # Show available transport options
-uv run linkedin_mcp
+linkedin-spider-mcp
 
 # Start with specific transport
-uv run linkedin_mcp sse
-uv run linkedin_mcp http --host 0.0.0.0 --port 9000
-uv run linkedin_mcp stdio
+linkedin-spider-mcp serve sse
+linkedin-spider-mcp serve http --host 0.0.0.0 --port 9000
+linkedin-spider-mcp serve stdio
 
 # Or use environment variables
-TRANSPORT=sse uv run linkedin_mcp
+TRANSPORT=sse linkedin-spider-mcp serve
+
+# If using development setup
+# Show available transport options
+uv run linkedin-spider-mcp
+
+# Start with specific transport
+uv run linkedin-spider-mcp serve sse
+uv run linkedin-spider-mcp serve http --host 0.0.0.0 --port 9000
+uv run linkedin-spider-mcp serve stdio
+
+# Or use environment variables
+TRANSPORT=sse uv run linkedin-spider-mcp serve
 ```
 
 #### Claude Code Integration

@@ -5,8 +5,8 @@ from selenium.common.exceptions import NoSuchElementException
 from selenium.webdriver.common.by import By
 from selenium.webdriver.remote.webelement import WebElement
 
-from linkedin_scraper.utils.pattern_detector import PatternDetector
-from linkedin_scraper.scrapers.base import BaseScraper
+from linkedin_spider.utils.pattern_detector import PatternDetector
+from linkedin_spider.scrapers.base import BaseScraper
 
 
 class ProfileScraper(BaseScraper):

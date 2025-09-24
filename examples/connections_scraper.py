@@ -4,7 +4,7 @@ Example: Connections Scraping
 
 import asyncio
 
-from linkedin_scraper import LinkedinSpider, ScraperConfig
+from linkedin_spider import LinkedinSpider, ScraperConfig
 
 
 async def scrape_connections_example():

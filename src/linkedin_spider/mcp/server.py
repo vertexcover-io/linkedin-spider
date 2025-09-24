@@ -1,11 +1,14 @@
 import json
 import logging
 import os
+import sys
+from typing import Annotated
 
+from cyclopts import App, Parameter
 from dotenv import load_dotenv
 from fastmcp import FastMCP
 
-from linkedin_scraper import LinkedinSpider, ScraperConfig
+from linkedin_spider import LinkedinSpider, ScraperConfig
 
 load_dotenv()
 
@@ -15,7 +18,8 @@ logging.basicConfig(
 logging.getLogger("urllib3.connectionpool").setLevel(logging.ERROR)
 logger = logging.getLogger(__name__)
 
-app = FastMCP("linkedin-spider")
+cli_app = App(name="linkedin-spider-mcp", help="LinkedIn Spider MCP Server")
+mcp_app = FastMCP("linkedin-spider")
 
 _scraper_instance = None
 
@@ -23,21 +27,11 @@ _scraper_instance = None
 def get_scraper():
     global _scraper_instance
     if _scraper_instance is None:
-        email = os.getenv("LINKEDIN_EMAIL")
-        password = os.getenv("LINKEDIN_PASSWORD")
-        li_at_cookie = os.getenv("LINKEDIN_COOKIE")
-
-        config = ScraperConfig()
-        config.headless = os.getenv("HEADLESS", "true").lower() == "true"
-
-        _scraper_instance = LinkedinSpider(
-            email=email, password=password, li_at_cookie=li_at_cookie, config=config
-        )
-
+        raise RuntimeError("Scraper not initialized. Call _initialize_scraper() first.")
     return _scraper_instance
 
 
-@app.tool()
+@mcp_app.tool()
 async def scrape_profile(profile_url: str) -> str:
     if not profile_url:
         raise ValueError("profile_url is required")
@@ -55,7 +49,7 @@ async def scrape_profile(profile_url: str) -> str:
         return f"Error scraping profile {profile_url}: {e!s}"
 
 
-@app.tool()
+@mcp_app.tool()
 async def search_profiles(
     query: str,
     max_results: int = 5,
@@ -97,7 +91,7 @@ async def search_profiles(
         return f"Error searching profiles for '{query}': {e!s}"
 
 
-@app.tool()
+@mcp_app.tool()
 async def get_session_status() -> str:
     try:
         scraper = get_scraper()
@@ -109,7 +103,7 @@ async def get_session_status() -> str:
         return f"Error checking session status: {e!s}"
 
 
-@app.tool()
+@mcp_app.tool()
 async def reset_session() -> str:
     global _scraper_instance
     try:
@@ -122,7 +116,7 @@ async def reset_session() -> str:
         return f"Error resetting session: {e!s}"
 
 
-@app.tool()
+@mcp_app.tool()
 async def scrape_incoming_connections(max_results: int = 10) -> str:
     try:
         scraper = get_scraper()
@@ -137,7 +131,7 @@ async def scrape_incoming_connections(max_results: int = 10) -> str:
         return f"Error scraping incoming connections: {e!s}"
 
 
-@app.tool()
+@mcp_app.tool()
 async def scrape_outgoing_connections(max_results: int = 10) -> str:
     try:
         scraper = get_scraper()
@@ -152,7 +146,7 @@ async def scrape_outgoing_connections(max_results: int = 10) -> str:
         return f"Error scraping outgoing connections: {e!s}"
 
 
-@app.tool()
+@mcp_app.tool()
 async def scrape_company(company_url: str) -> str:
     if not company_url:
         raise ValueError("company_url is required")
@@ -170,7 +164,7 @@ async def scrape_company(company_url: str) -> str:
         return f"Error scraping company {company_url}: {e!s}"
 
 
-@app.tool()
+@mcp_app.tool()
 async def scrape_conversations_list(max_results: int = 10) -> str:
     try:
         scraper = get_scraper()
@@ -185,7 +179,7 @@ async def scrape_conversations_list(max_results: int = 10) -> str:
         return f"Error scraping conversations list: {e!s}"
 
 
-@app.tool()
+@mcp_app.tool()
 async def scrape_conversation(participant_name: str | None = None) -> str:
     try:
         scraper = get_scraper()
@@ -201,7 +195,7 @@ async def scrape_conversation(participant_name: str | None = None) -> str:
         return f"Error scraping conversation: {e!s}"
 
 
-@app.tool()
+@mcp_app.tool()
 async def send_connection_request(profile_url: str, note: str | None = None) -> str:
     if not profile_url:
         raise ValueError("profile_url is required")
@@ -225,33 +219,57 @@ async def send_connection_request(profile_url: str, note: str | None = None) -> 
         return f"Error sending connection request to {profile_url}: {e!s}"
 
 
-def main():
-    import sys
-
-    # Parse command line arguments
-    transport = "stdio"  # Default transport
-    host = os.getenv("HOST", "127.0.0.1")
-    port = int(os.getenv("PORT", "8000"))
-
-    if len(sys.argv) > 1:
-        transport = sys.argv[1].lower()
-
-    # Parse additional arguments for host and port
-    for i, arg in enumerate(sys.argv):
-        if arg == "--host" and i + 1 < len(sys.argv):
-            host = sys.argv[i + 1]
-        elif arg == "--port" and i + 1 < len(sys.argv):
-            port = int(sys.argv[i + 1])
-
+@cli_app.command
+def serve(
+    transport: Annotated[
+        str,
+        Parameter(
+            name=["-t", "--transport"],
+            help="Transport protocol for the server",
+        ),
+    ] = "stdio",
+    host: Annotated[
+        str,
+        Parameter(
+            name=["-h", "--host"],
+            help="Host address for HTTP/SSE transport",
+        ),
+    ] = "127.0.0.1",
+    port: Annotated[
+        int,
+        Parameter(
+            name=["-p", "--port"],
+            help="Port number for HTTP/SSE transport",
+        ),
+    ] = 8000,
+    email: Annotated[
+        str | None,
+        Parameter(help="LinkedIn email for authentication"),
+    ] = None,
+    password: Annotated[
+        str | None,
+        Parameter(help="LinkedIn password for authentication"),
+    ] = None,
+    cookie: Annotated[
+        str | None,
+        Parameter(help="LinkedIn li_at cookie for authentication"),
+    ] = None,
+    headless: Annotated[
+        bool,
+        Parameter(help="Run browser in headless mode"),
+    ] = True,
+):
+    """Start the LinkedIn MCP server."""
     logger.info(f"Starting LinkedIn MCP {transport.upper()} Server...")
 
     try:
         logger.info("Initializing LinkedIn scraper...")
-        get_scraper()
+        _initialize_scraper(email, password, cookie, headless)
         logger.info("LinkedIn scraper initialized successfully")
     except Exception as e:
-        logger.warning(f"Failed to initialize scraper: {e}")
-        logger.info("Server will start but scraper will be inactive")
+        logger.error(f"Failed to initialize scraper: {e}")
+        logger.error("Cannot start server without valid LinkedIn credentials")
+        sys.exit(1)
 
     logger.info(
         f"FastMCP {transport.upper()} Server initialized with tools: scrape_profile, search_profiles, scrape_company, "
@@ -261,15 +279,85 @@ def main():
 
     if transport in ["sse", "http", "streamable-http"]:
         logger.info(f"Starting {transport} server on {host}:{port}")
-        app.run(transport=transport, host=host, port=port)
+        mcp_app.run(transport=transport, host=host, port=port)
     elif transport == "stdio":
         logger.info("Starting stdio server")
-        app.run(transport="stdio")
+        mcp_app.run(transport="stdio")
     else:
         logger.error(f"Unsupported transport: {transport}")
         logger.info("Supported transports: stdio, sse, http, streamable-http")
         sys.exit(1)
 
 
+def _initialize_scraper(
+    email: str | None = None,
+    password: str | None = None,
+    cookie: str | None = None,
+    headless: bool = True,
+) -> None:
+    """Initialize the scraper with proper error handling."""
+    global _scraper_instance
+
+    if _scraper_instance is None:
+        credentials = _get_credentials(email, password, cookie)
+        config = ScraperConfig(headless=headless)
+
+        _scraper_instance = LinkedinSpider(
+            email=credentials.get("email"),
+            password=credentials.get("password"),
+            li_at_cookie=credentials.get("cookie"),
+            config=config,
+        )
+
+
+def _get_credentials(email: str | None, password: str | None, cookie: str | None) -> dict:
+    """Get authentication credentials from arguments or environment."""
+    credentials = {
+        "email": email or os.getenv("LINKEDIN_EMAIL"),
+        "password": password or os.getenv("LINKEDIN_PASSWORD"),
+        "cookie": cookie or os.getenv("LINKEDIN_COOKIE"),
+    }
+
+    if not any(credentials.values()):
+        raise ValueError(
+            "Authentication required. Provide either:\n"
+            "1. Email and password (--email, --password)\n"
+            "2. LinkedIn cookie (--cookie)\n"
+            "3. Set environment variables: LINKEDIN_EMAIL, LINKEDIN_PASSWORD, or LINKEDIN_COOKIE"
+        )
+
+    return credentials
+
+
+def cli_main():
+    """CLI entry point."""
+    cli_app()
+
+
+def main():
+    """Legacy main function for backward compatibility."""
+    transport = "stdio"
+    host = os.getenv("HOST", "127.0.0.1")
+    port = int(os.getenv("PORT", "8000"))
+
+    if len(sys.argv) > 1:
+        transport = sys.argv[1].lower()
+
+    for i, arg in enumerate(sys.argv):
+        if arg == "--host" and i + 1 < len(sys.argv):
+            host = sys.argv[i + 1]
+        elif arg == "--port" and i + 1 < len(sys.argv):
+            port = int(sys.argv[i + 1])
+
+    try:
+        serve(transport=transport, host=host, port=port)
+    except KeyboardInterrupt:
+        logger.info("Server stopped by user")
+        sys.exit(0)
+    except Exception as e:
+        logger.error(f"Server error: {e}")
+        sys.exit(1)
+
+
 if __name__ == "__main__":
-    main()
+    cli_main()

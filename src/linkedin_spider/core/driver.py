@@ -14,7 +14,7 @@ from selenium.webdriver.chrome.service import Service
 from selenium.webdriver.common.action_chains import ActionChains
 from selenium.webdriver.support.ui import WebDriverWait
 
-from linkedin_scraper.core.config import ScraperConfig
+from linkedin_spider.core.config import ScraperConfig
 
 
 class DriverManager:
@@ -169,7 +169,7 @@ class DriverManager:
 
     def _setup_profile_directory(self) -> None:
         """Setup profile directory for persistent sessions."""
-        profile_base = Path.cwd() / ".linkedin_scraper_profiles"
+        profile_base = Path.cwd() / ".linkedin_spider_profiles"
         profile_base.mkdir(exist_ok=True)
 
         self.profile_dir = profile_base / "default_profile"

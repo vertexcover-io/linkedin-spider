@@ -2,7 +2,7 @@
 Example: Company Scraping
 """
 
-from linkedin_scraper import LinkedinSpider, ScraperConfig
+from linkedin_spider import LinkedinSpider, ScraperConfig
 
 
 def scrape_company_example():

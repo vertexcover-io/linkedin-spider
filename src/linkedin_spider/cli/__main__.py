@@ -6,7 +6,7 @@ import sys
 def main():
     """Main entry point for CLI."""
     try:
-        from linkedin_scraper.cli.main import app
+        from linkedin_spider.cli.main import app
         app()
     except ImportError as e:
         if "cyclopts" in str(e):
