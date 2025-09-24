@@ -157,15 +157,19 @@ Great for quick data extraction and scripting:
 
 ```bash
 # If installed via pip
-linkedin-spider-cli search -q "product manager" -n 10 -o results.json
-linkedin-spider-cli profile -u "https://linkedin.com/in/johndoe" -o profile.json
-linkedin-spider-cli company -u "https://linkedin.com/company/openai" -o company.json
+linkedin-spider-cli search -q "product manager" -n 10 -o results.json --email your@email.com --password yourpassword
+linkedin-spider-cli profile -u "https://linkedin.com/in/johndoe" -o profile.json --email your@email.com --password yourpassword
+linkedin-spider-cli company -u "https://linkedin.com/company/openai" -o company.json --email your@email.com --password yourpassword
+linkedin-spider-cli connections -n 20 -o connections.json --email your@email.com --password yourpassword
 
 # If using development setup
-uv run linkedin-spider-cli search -q "product manager" -n 10 -o results.json
-uv run linkedin-spider-cli profile -u "https://linkedin.com/in/johndoe" -o profile.json
-uv run linkedin-spider-cli company -u "https://linkedin.com/company/openai" -o company.json
+uv run linkedin-spider-cli search -q "product manager" -n 10 -o results.json --email your@email.com --password yourpassword
+uv run linkedin-spider-cli profile -u "https://linkedin.com/in/johndoe" -o profile.json --email your@email.com --password yourpassword
+uv run linkedin-spider-cli company -u "https://linkedin.com/company/openai" -o company.json --email your@email.com --password yourpassword
+uv run linkedin-spider-cli connections -n 20 -o connections.json --email your@email.com --password yourpassword
 ```
+
+> **Note:** You typically only need to provide `--email` and `--password` once. The CLI saves your authentication session and will reuse it for subsequent commands until the session expires (usually after several hours or days). You can also set `LINKEDIN_EMAIL` and `LINKEDIN_PASSWORD` environment variables to avoid typing them repeatedly.
 
 ### 3. MCP Server
 
@@ -195,9 +199,9 @@ Start the MCP server:
 linkedin-spider-mcp
 
 # Start with specific transport
-linkedin-spider-mcp serve sse
-linkedin-spider-mcp serve http --host 0.0.0.0 --port 9000
-linkedin-spider-mcp serve stdio
+linkedin-spider-mcp serve sse --email your@email.com --password yourpassword
+linkedin-spider-mcp serve http --host 0.0.0.0 --port 9000 --email your@email.com --password yourpassword
+linkedin-spider-mcp serve stdio --email your@email.com --password yourpassword
 
 # Or use environment variables
 TRANSPORT=sse linkedin-spider-mcp serve
@@ -207,9 +211,9 @@ TRANSPORT=sse linkedin-spider-mcp serve
 uv run linkedin-spider-mcp
 
 # Start with specific transport
-uv run linkedin-spider-mcp serve sse
-uv run linkedin-spider-mcp serve http --host 0.0.0.0 --port 9000
-uv run linkedin-spider-mcp serve stdio
+uv run linkedin-spider-mcp serve sse --email your@email.com --password yourpassword
+uv run linkedin-spider-mcp serve http --host 0.0.0.0 --port 9000 --email your@email.com --password yourpassword
+uv run linkedin-spider-mcp serve stdio --email your@email.com --password yourpassword
 
 # Or use environment variables
 TRANSPORT=sse uv run linkedin-spider-mcp serve
