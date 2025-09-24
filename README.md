@@ -1,11 +1,11 @@
-# linkedin-scraper-mcp
+# linkedin-spider
 
-Effortless LinkedIn scraping with zero detection. Extract, export, and automate your LinkedIn data.
+Effortless Linkedin scraping with zero detection. Extract, export, and automate your Linkedin data.
 
 
 ## Features
 
-- Search LinkedIn profiles with advanced filters (location, connection type, current company, position)
+- Search Linkedin profiles with advanced filters (location, connection type, current company, position)
 - Extract complete profile information (experience, education, skills, contact details)
 - Get company details and information
 - Retrieve incoming and outgoing connection requests
@@ -19,14 +19,14 @@ Effortless LinkedIn scraping with zero detection. Extract, export, and automate 
 
 ```bash
 # Clone the repo
-github.com/vertexcover-io/linkedin-mcp-py
-cd linkedin-mcp-py
+github.com/vertexcover-io/linkedin-spider
+cd linkedin-spider
 # Install with uv
 uv sync
 ```
 
 > [!NOTE]
-> **Authentication Update:** LinkedIn has enhanced their anti-bot mechanisms, temporarily affecting cookie-based authentication. We recommend using the email/password authentication method for reliable access. We are actively working on restoring full cookie authentication support.
+> **Authentication Update:** Linkedin has enhanced their anti-bot mechanisms, temporarily affecting cookie-based authentication. We recommend using the email/password authentication method for reliable access. We are actively working on restoring full cookie authentication support.
 
 ## Different ways to use it
 
@@ -35,7 +35,7 @@ uv sync
 Perfect for integration into your existing Python applications:
 
 ```python
-from linkedin_scraper import LinkedInScraper, ScraperConfig
+from linkedin_scraper import LinkedinSpider, ScraperConfig
 
 config = ScraperConfig(headless=True, page_load_timeout=30)
 ```
@@ -43,7 +43,7 @@ config = ScraperConfig(headless=True, page_load_timeout=30)
 ```python
 # Authenticate (use either email/password or cookie).
 # Authentication is mostly done once and the session is saved in the chrome profile
-scraper = LinkedInScraper(
+scraper = LinkedinSpider(
     email="your_email@example.com",
     password="your_password",
     config=config
@@ -138,9 +138,9 @@ For more examples : [examples](./examples)
 Great for quick data extraction and scripting:
 
 ```bash
-uv run linkedin_scraper_cli search -q "product manager" -n 10 -o results.json
-uv run linkedin_scraper_cli profile -u "https://linkedin.com/in/johndoe" -o profile.json
-uv run linkedin_scraper_cli company -u "https://linkedin.com/company/openai" -o company.json
+uv run linkedin-spider-cli search -q "product manager" -n 10 -o results.json
+uv run linkedin-spider-cli profile -u "https://linkedin.com/in/johndoe" -o profile.json
+uv run linkedin-spider-cli company -u "https://linkedin.com/company/openai" -o company.json
 ```
 
 ### 3. MCP Server
@@ -182,7 +182,7 @@ TRANSPORT=sse uv run linkedin_mcp
 
 ```bash
 # Add to Claude Code
-claude mcp add linkedin-scraper --transport sse <server-url> 
+claude mcp add linkedin-spider --transport sse <server-url> 
 # Example server URL format: http://localhost:8080/sse
 ```
 
@@ -208,7 +208,7 @@ Then add this to your Claude Desktop configuration:
 ```json
 {
   "mcpServers": {
-    "linkedin-scraper": {
+    "linkedin-spider": {
       "command": "docker",
       "args": [
         "run", "--rm", "-i",
@@ -218,32 +218,6 @@ Then add this to your Claude Desktop configuration:
         "-e", "TRANSPORT=stdio",
         "linkedin-mcp-stdio"
       ]
-    }
-  }
-}
-```
-
-##### Option 2: Direct Installation (Alternative)
-
-If you prefer not to use Docker, you can install directly:
-
-```bash
-# Install globally
-uv tool install --editable .
-```
-
-Then configure Claude Desktop:
-```json
-{
-  "mcpServers": {
-    "linkedin-scraper": {
-      "command": "linkedin-mcp",
-      "args": ["stdio"],
-      "env": {
-        "LINKEDIN_EMAIL": "your_email@example.com",
-        "LINKEDIN_PASSWORD": "your_password",
-        "HEADLESS": "true"
-      }
     }
   }
 }
@@ -282,22 +256,22 @@ docker run --rm -i -e TRANSPORT=stdio --env-file .env linkedin-mcp
 
 ## Authentication Methods
 
-### Method 1: LinkedIn Cookie
+### Method 1: Linkedin Cookie
 
-1. Login to LinkedIn in your browser
+1. Login to Linkedin in your browser
 2. Open Developer Tools (F12)
 3. Go to Application/Storage → Cookies → linkedin.com
 4. Copy the `li_at` cookie value
 5. Use it in your code:
 
 ```python
-scraper = LinkedInScraper(li_at_cookie="your_cookie_value")
+scraper = LinkedinSpider(li_at_cookie="your_cookie_value")
 ```
 
 ### Method 2: Email & Password (Recommended)
 
 ```python
-scraper = LinkedInScraper(
+scraper = LinkedinSpider(
     email="your_email@example.com",
     password="your_password"
 )
@@ -315,11 +289,11 @@ This project is licensed under the MIT License - see the [LICENSE](LICENSE) file
 
 This tool is for personal use only. Please:
 
-- Respect LinkedIn's Terms of Service
+- Respect Linkedin's Terms of Service
 - Use reasonable rate limits
 - Don't spam or harass users
 - Be responsible with the data you collect
 
 ---
 
-**Ready to extract LinkedIn data like a pro?** Star this repo and start scraping!
+**Ready to extract Linkedin data like a pro?** Star this repo and start scraping!

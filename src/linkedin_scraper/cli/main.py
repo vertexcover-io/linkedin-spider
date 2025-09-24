@@ -11,12 +11,12 @@ from typing import Annotated
 from cyclopts import App, Parameter
 from dotenv import load_dotenv
 
-from linkedin_scraper import LinkedInScraper, ScraperConfig
+from linkedin_scraper import LinkedinSpider, ScraperConfig
 
 load_dotenv()
 
 app = App(
-    name="linkedin-scraper", help="LinkedIn Scraper - Extract LinkedIn profile and company data."
+    name="linkedin-spider", help="LinkedIn Spider - Extract LinkedIn profile and company data."
 )
 
 
@@ -42,7 +42,7 @@ def search(
         config = _create_config(headless)
         credentials = _get_credentials(email, password, cookie)
 
-        scraper = LinkedInScraper(
+        scraper = LinkedinSpider(
             email=credentials.get("email"),
             password=credentials.get("password"),
             li_at_cookie=credentials.get("cookie"),
@@ -84,7 +84,7 @@ def profile(
         config = _create_config(headless)
         credentials = _get_credentials(email, password, cookie)
 
-        scraper = LinkedInScraper(
+        scraper = LinkedinSpider(
             email=credentials.get("email"),
             password=credentials.get("password"),
             li_at_cookie=credentials.get("cookie"),
@@ -130,7 +130,7 @@ def company(
         config = _create_config(headless)
         credentials = _get_credentials(email, password, cookie)
 
-        scraper = LinkedInScraper(
+        scraper = LinkedinSpider(
             email=credentials.get("email"),
             password=credentials.get("password"),
             li_at_cookie=credentials.get("cookie"),
@@ -178,7 +178,7 @@ def connections(
         config = _create_config(headless)
         credentials = _get_credentials(email, password, cookie)
 
-        scraper = LinkedInScraper(
+        scraper = LinkedinSpider(
             email=credentials.get("email"),
             password=credentials.get("password"),
             li_at_cookie=credentials.get("cookie"),

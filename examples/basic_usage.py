@@ -1,9 +1,8 @@
 """
 Example: Basic Usage
-A simple getting started example for the LinkedIn Scraper.
 """
 
-from linkedin_scraper import LinkedInScraper, ScraperConfig
+from linkedin_scraper import LinkedinSpider, ScraperConfig
 
 
 def basic_example():
@@ -13,7 +12,7 @@ def basic_example():
 
     # Use either cookie or email and pass.
     # Authentication is usually done once as the session is stored for the further requests.
-    scraper = LinkedInScraper(
+    scraper = LinkedinSpider(
         email="your_email@example.com",
         password="your_password",
         # li_at_cookie="your_linkedin_cookie",

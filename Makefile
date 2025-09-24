@@ -27,11 +27,11 @@ clean-build:
 
 .PHONY: run-cli
 run-cli:
-	@uv run linkedin_scraper_cli
+	@uv run linkedin-spider-cli
 
 .PHONY: run-mcp
 run-mcp:
-	@uv run linkedin_scraper_mcp
+	@uv run linkedin-spider-mcp
 
 .PHONY: dev-install
 dev-install: install

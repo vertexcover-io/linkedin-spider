@@ -16,7 +16,7 @@ from linkedin_scraper.core.config import ScraperConfig
 from linkedin_scraper.core.driver import DriverManager
 
 
-class LinkedInScraper:
+class LinkedinSpider:
     """Main LinkedIn scraper orchestrator."""
 
     def __init__(
