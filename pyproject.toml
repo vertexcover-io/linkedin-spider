@@ -56,10 +56,10 @@ all = [
 ]
 
 [project.urls]
-Homepage = "https://github.com/vertexcover-io/linkedin-mcp-py"
-Repository = "https://github.com/vertexcover-io/linkedin-mcp-py"
-Issues = "https://github.com/vertexcover-io/linkedin-mcp-py/issues"
-Documentation = "https://github.com/vertexcover-io/linkedin-mcp-py#readme"
+Homepage = "https://github.com/vertexcover-io/linkedin-spider"
+Repository = "https://github.com/vertexcover-io/linkedin-spider"
+Issues = "https://github.com/vertexcover-io/linkedin-spider/issues"
+Documentation = "https://github.com/vertexcover-io/linkedin-spider#readme"
 
 [project.scripts]
 linkedin-spider-cli = "linkedin_scraper.cli.__main__:main"
@@ -203,3 +203,20 @@ source = "uv-dynamic-versioning"
 vcs = "git"
 style = "pep440"
 fallback-version = "0.0.0.dev0"
+
+[tool.uv.workspace]
+members = [
+    ".",
+    ".",
+]
+
+[tool.uv.sources]
+linkedin-spider = { workspace = true }
+
+[dependency-groups]
+cli = [
+    "linkedin-spider[cli]",
+]
+mcp = [
+    "linkedin-spider[mcp]",
+]

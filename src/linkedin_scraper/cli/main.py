@@ -11,7 +11,7 @@ from typing import Annotated
 from cyclopts import App, Parameter
 from dotenv import load_dotenv
 
-from linkedin_scraper import LinkedInSpider, ScraperConfig
+from linkedin_scraper import LinkedinSpider, ScraperConfig
 
 load_dotenv()
 
@@ -42,7 +42,7 @@ def search(
         config = _create_config(headless)
         credentials = _get_credentials(email, password, cookie)
 
-        scraper = LinkedInSpider(
+        scraper = LinkedinSpider(
             email=credentials.get("email"),
             password=credentials.get("password"),
             li_at_cookie=credentials.get("cookie"),
@@ -84,7 +84,7 @@ def profile(
         config = _create_config(headless)
         credentials = _get_credentials(email, password, cookie)
 
-        scraper = LinkedInSpider(
+        scraper = LinkedinSpider(
             email=credentials.get("email"),
             password=credentials.get("password"),
             li_at_cookie=credentials.get("cookie"),
@@ -130,7 +130,7 @@ def company(
         config = _create_config(headless)
         credentials = _get_credentials(email, password, cookie)
 
-        scraper = LinkedInSpider(
+        scraper = LinkedinSpider(
             email=credentials.get("email"),
             password=credentials.get("password"),
             li_at_cookie=credentials.get("cookie"),
@@ -178,7 +178,7 @@ def connections(
         config = _create_config(headless)
         credentials = _get_credentials(email, password, cookie)
 
-        scraper = LinkedInSpider(
+        scraper = LinkedinSpider(
             email=credentials.get("email"),
             password=credentials.get("password"),
             li_at_cookie=credentials.get("cookie"),

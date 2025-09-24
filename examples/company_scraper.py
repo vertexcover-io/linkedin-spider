@@ -2,14 +2,14 @@
 Example: Company Scraping
 """
 
-from linkedin_scraper import LinkedInSpider, ScraperConfig
+from linkedin_scraper import LinkedinSpider, ScraperConfig
 
 
 def scrape_company_example():
     """Example of scraping LinkedIn company pages."""
 
     config = ScraperConfig(headless=True, page_load_timeout=30)
-    scraper = LinkedInSpider(config)
+    scraper = LinkedinSpider(config)
 
     try:
         companies = [
@@ -52,7 +52,7 @@ def search_profiles_example():
     """Example of searching for profiles with company filter."""
 
     config = ScraperConfig(headless=True, page_load_timeout=30)
-    scraper = LinkedInSpider(config)
+    scraper = LinkedinSpider(config)
 
     try:
         print("=== Searching for Profiles at AI Companies ===")

@@ -4,14 +4,14 @@ Example: Conversations Scraping
 
 import asyncio
 
-from linkedin_scraper import LinkedInSpider, ScraperConfig
+from linkedin_scraper import LinkedinSpider, ScraperConfig
 
 
 async def scrape_conversations_list_example():
     """Example of scraping your LinkedIn conversations list."""
 
     config = ScraperConfig(headless=True, page_load_timeout=30)
-    scraper = LinkedInSpider(config)
+    scraper = LinkedinSpider(config)
     try:
         print("=== Your Conversations ===")
         conversations = scraper.scrape_conversations_list(max_results=10)
@@ -37,7 +37,7 @@ async def scrape_specific_conversation_example():
     """Example of scraping a specific conversation."""
 
     config = ScraperConfig(headless=True, page_load_timeout=30)
-    scraper = LinkedInSpider(config)
+    scraper = LinkedinSpider(config)
 
     try:
         participant_name = "Eric"
@@ -82,7 +82,7 @@ async def export_all_conversations_example():
     """Example of exporting all conversations to files."""
 
     config = ScraperConfig(headless=True, page_load_timeout=30)
-    scraper = LinkedInSpider(config)
+    scraper = LinkedinSpider(config)
 
     try:
         print("=== Exporting All Conversations ===")
@@ -151,7 +151,7 @@ async def search_conversations_example():
     """Example of searching through conversations for specific keywords."""
 
     config = ScraperConfig(headless=True, page_load_timeout=30)
-    scraper = LinkedInSpider(config)
+    scraper = LinkedinSpider(config)
 
     try:
         search_keywords = ["meeting", "project", "opportunity"]

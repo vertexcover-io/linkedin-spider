@@ -5,7 +5,7 @@ import os
 from dotenv import load_dotenv
 from fastmcp import FastMCP
 
-from linkedin_scraper import LinkedInSpider, ScraperConfig
+from linkedin_scraper import LinkedinSpider, ScraperConfig
 
 load_dotenv()
 
@@ -30,7 +30,7 @@ def get_scraper():
         config = ScraperConfig()
         config.headless = os.getenv("HEADLESS", "true").lower() == "true"
 
-        _scraper_instance = LinkedInSpider(
+        _scraper_instance = LinkedinSpider(
             email=email, password=password, li_at_cookie=li_at_cookie, config=config
         )
 

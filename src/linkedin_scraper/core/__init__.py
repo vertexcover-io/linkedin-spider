@@ -3,10 +3,10 @@
 from linkedin_scraper.core.auth import AuthManager
 from linkedin_scraper.core.config import ScraperConfig
 from linkedin_scraper.core.driver import DriverManager
-from linkedin_scraper.core.scraper import LinkedInSpider
+from linkedin_scraper.core.scraper import LinkedinSpider
 
 __all__ = [
-    "LinkedInSpider",
+    "LinkedinSpider",
     "AuthManager",
     "DriverManager",
     "ScraperConfig",

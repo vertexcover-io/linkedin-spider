@@ -709,6 +709,14 @@ mcp = [
     { name = "mcp" },
 ]
 
+[package.dev-dependencies]
+cli = [
+    { name = "linkedin-spider", extra = ["cli"] },
+]
+mcp = [
+    { name = "linkedin-spider", extra = ["mcp"] },
+]
+
 [package.metadata]
 requires-dist = [
     { name = "black", marker = "extra == 'all'", specifier = ">=23.0.0" },
@@ -736,6 +744,10 @@ requires-dist = [
     { name = "twine", specifier = ">=6.2.0" },
 ]
 provides-extras = ["all", "cli", "dev", "mcp"]
+
+[package.metadata.requires-dev]
+cli = [{ name = "linkedin-spider", extras = ["cli"], editable = "." }]
+mcp = [{ name = "linkedin-spider", extras = ["mcp"], editable = "." }]
 
 [[package]]
 name = "markdown-it-py"
