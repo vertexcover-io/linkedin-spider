@@ -29,13 +29,10 @@ class AuthManager:
 
     def authenticate(self) -> bool:
         """Authenticate using available methods in priority order."""
-        if self._check_existing_session():
+        if self._is_authenticated():
             return True
 
-        login_with_cred = os.getenv("LOGIN_WITH_CRED", "false").lower() == "true"
-
-        self.driver.get("https://www.linkedin.com")
-        self.human_behavior.delay()
+        login_with_cred = os.getenv("LOGIN_WITH_CRED", "true").lower() == "true"
 
         if login_with_cred:
             if self.email and self.password and self._login_with_credentials():
@@ -46,17 +43,11 @@ class AuthManager:
                 self.driver_manager.save_cookies()
                 return True
 
-            try:
-                if self._try_saved_cookies():
-                    return True
-            except Exception:
-                pass
+            if self._try_saved_cookies():
+                return True
         else:
-            try:
-                if self._try_saved_cookies():
-                    return True
-            except Exception:
-                pass
+            if self._try_saved_cookies():
+                return True
 
             if self.li_at_cookie and self._authenticate_with_cookie():
                 self.driver_manager.save_cookies()
@@ -68,21 +59,43 @@ class AuthManager:
 
         raise Exception("All authentication methods failed")
 
-    def _check_existing_session(self) -> bool:
-        """Check if already authenticated by trying to access feed page."""
+    def _is_authenticated(self) -> bool:
+        """Check if already authenticated by examining current page."""
         try:
-            self.driver.get("https://www.linkedin.com/feed/")
-            self.human_behavior.delay(2, 4)
-
             current_url = self.driver.current_url.lower()
+
+            if not current_url or "linkedin.com" not in current_url:
+                self.driver.get("https://www.linkedin.com")
+                self.human_behavior.delay(1, 2)
+                current_url = self.driver.current_url.lower()
 
             if "login" in current_url or "signin" in current_url:
                 return False
 
             if "feed" in current_url or "mynetwork" in current_url:
-                return self._verify_feed_access()
+                return self._quick_feed_check()
 
+            self.driver.get("https://www.linkedin.com")
+            self.human_behavior.delay(1, 2)
+            current_url = self.driver.current_url.lower()
+
+            return "login" not in current_url and "signin" not in current_url and self._quick_feed_check()
+        except Exception:
             return False
+
+    def _quick_feed_check(self) -> bool:
+        """Quick check for authentication indicators on current page."""
+        try:
+            page_source = self.driver.page_source.lower()
+            auth_indicators = [
+                "global-nav__me",
+                "global-nav__primary",
+                "messaging",
+                "notifications",
+                "start a post",
+                "global navigation"
+            ]
+            return any(indicator in page_source for indicator in auth_indicators)
         except Exception:
             return False
 
@@ -91,10 +104,10 @@ class AuthManager:
         if not self.driver_manager.load_cookies():
             return False
 
-        self.driver.refresh()
-        self.human_behavior.delay(2, 4)
+        self.driver.get("https://www.linkedin.com")
+        self.human_behavior.delay(1, 2)
 
-        return self._check_authentication_status()
+        return self._is_authenticated()
 
     def _authenticate_with_cookie(self) -> bool:
         """Authenticate using li_at cookie."""
@@ -113,12 +126,10 @@ class AuthManager:
             )
 
             self.driver.refresh()
-            self.human_behavior.delay(2, 4)
+            self.human_behavior.delay(2, 3)
 
-            if not self._handle_welcome_page():
-                return False
-
-            return self._navigate_to_feed()
+            self._handle_welcome_page()
+            return self._is_authenticated()
 
         except Exception:
             return False
@@ -127,7 +138,7 @@ class AuthManager:
         """Login using email and password."""
         try:
             self.driver.get("https://www.linkedin.com/login")
-            self.human_behavior.delay(2, 4)
+            self.human_behavior.delay(2, 3)
 
             email_field = self.wait.until(EC.presence_of_element_located((By.ID, "username")))
             self.human_behavior.click(email_field)
@@ -142,67 +153,19 @@ class AuthManager:
             login_button = self.driver.find_element(By.XPATH, "//button[@type='submit']")
             self.human_behavior.click(login_button)
 
-            self.human_behavior.delay(3, 6)
+            self.human_behavior.delay(3, 5)
 
-            current_url = self.driver.current_url.lower()
+            if self._check_login_errors():
+                return False
 
-            if "feed" in current_url or "mynetwork" in current_url:
-                return self._verify_feed_access()
-            elif "challenge" in current_url or self._is_challenge_present():
+            if self._is_challenge_present():
                 return self._handle_challenge()
-            elif self._check_login_errors():
-                return False
-            else:
-                return False
+
+            return self._is_authenticated()
 
         except Exception:
             return False
 
-    def _check_authentication_status(self) -> bool:
-        """Check if user is already authenticated."""
-        current_url = self.driver.current_url.lower()
-
-        if "login" in current_url or "signin" in current_url:
-            return False
-
-        if "feed" in current_url or "mynetwork" in current_url or "linkedin.com" in current_url:
-            return self._verify_feed_access()
-
-        self.driver.get("https://www.linkedin.com/feed/")
-        self.human_behavior.delay(2, 4)
-        return self._verify_feed_access()
-
-    def _navigate_to_feed(self) -> bool:
-        """Navigate to feed page and handle challenges."""
-        max_attempts = 3
-
-        for attempt in range(1, max_attempts + 1):
-            self.driver.get("https://www.linkedin.com/feed/")
-            self.human_behavior.delay(3, 6)
-
-            current_url = self.driver.current_url.lower()
-
-            if "challenge" in current_url or self._is_challenge_present():
-                if self._handle_challenge():
-                    return True
-                continue
-
-            if "feed" in current_url or "mynetwork" in current_url:
-                try:
-                    self.wait.until(EC.presence_of_element_located((By.TAG_NAME, "main")))
-                    if self._verify_feed_access():
-                        return True
-                except TimeoutException:
-                    if self._is_challenge_present() and self._handle_challenge():
-                        return True
-                    continue
-
-            if "login" in current_url or "signin" in current_url:
-                return False
-
-            self.human_behavior.delay(2, 4)
-
-        return False
 
     def _is_challenge_present(self) -> bool:
         """Check if security challenge is present."""
@@ -282,64 +245,28 @@ class AuthManager:
         """Verify that user has access to LinkedIn feed."""
         current_url = self.driver.current_url.lower()
 
-        if not (
-            "feed" in current_url or "mynetwork" in current_url or "linkedin.com" in current_url
-        ):
+        if "login" in current_url or "signin" in current_url:
             return False
 
-        feed_indicators = [
-            "main[role='main']",
-            "[data-test-id='feed-container']",
-            ".scaffold-layout__content",
-            ".feed-container",
-            "[data-view-name='feed-container']",
-            ".global-nav__me",
-            ".global-nav__me-photo",
-            ".global-nav__primary",
-            ".global-nav__secondary",
-            "[data-test-id='global-nav']",
-        ]
-
-        for selector in feed_indicators:
-            try:
-                element = self.driver.find_element(By.CSS_SELECTOR, selector)
-                if element.is_displayed():
-                    return True
-            except NoSuchElementException:
-                continue
+        if "challenge" in current_url:
+            return False
 
         page_source = self.driver.page_source.lower()
-        feed_keywords = [
-            "start a post",
-            "what's on your mind",
-            "feed",
-            "linkedin news",
-            "trending",
-            "suggested for you",
-            "write a post",
-            "share an article",
-            "global navigation",
-            "messaging",
-            "notifications",
-        ]
-
-        if any(keyword in page_source for keyword in feed_keywords):
-            return True
 
         challenge_indicators = [
-            "challenge",
-            "verification",
-            "captcha",
-            "security-challenge",
-            "checkpoint",
-            "two-step",
-            "verify your identity",
+            "challenge", "verification", "captcha", "security-challenge",
+            "checkpoint", "two-step", "verify your identity"
         ]
 
         if any(indicator in page_source for indicator in challenge_indicators):
             return False
 
-        return False
+        auth_indicators = [
+            "global-nav__me", "messaging", "notifications",
+            "start a post", "global navigation", "feed"
+        ]
+
+        return any(indicator in page_source for indicator in auth_indicators)
 
     def _handle_welcome_page(self) -> bool:
         """Handle welcome back page with profile selection."""
@@ -363,55 +290,27 @@ class AuthManager:
                 ".account-selector button",
                 "button[aria-label*='profile']",
                 ".profile-card button",
-                ".profile-selector .profile-card",
+                "//button[contains(text(), 'Continue')]",
+                "//button[contains(text(), 'Select')]",
             ]
 
             for selector in profile_selectors:
                 try:
-                    elements = self.driver.find_elements(By.CSS_SELECTOR, selector)
+                    if selector.startswith("//"):
+                        elements = self.driver.find_elements(By.XPATH, selector)
+                    else:
+                        elements = self.driver.find_elements(By.CSS_SELECTOR, selector)
+
                     if elements:
                         first_button = elements[0]
                         if first_button.is_displayed() and first_button.is_enabled():
                             self.human_behavior.click(first_button)
-                            self.human_behavior.delay(2, 4)
-
-                            if self._verify_feed_access():
-                                return True
-                            else:
-                                self.driver.get("https://www.linkedin.com/feed/")
-                                self.human_behavior.delay(2, 4)
-                                return self._verify_feed_access()
+                            self.human_behavior.delay(1, 2)
+                            return True
                 except Exception:
                     continue
 
-            xpath_selectors = [
-                "//button[contains(text(), 'Continue')]",
-                "//button[contains(text(), 'Select')]",
-                "//div[contains(@class, 'profile')]//button",
-                "//button[contains(@aria-label, 'profile')]",
-            ]
-
-            for xpath in xpath_selectors:
-                try:
-                    elements = self.driver.find_elements(By.XPATH, xpath)
-                    if elements:
-                        first_button = elements[0]
-                        if first_button.is_displayed() and first_button.is_enabled():
-                            self.human_behavior.click(first_button)
-                            self.human_behavior.delay(2, 4)
-
-                            if self._verify_feed_access():
-                                return True
-                            else:
-                                self.driver.get("https://www.linkedin.com/feed/")
-                                self.human_behavior.delay(2, 4)
-                                return self._verify_feed_access()
-                except Exception:
-                    continue
-
-            self.driver.get("https://www.linkedin.com/feed/")
-            self.human_behavior.delay(2, 4)
-            return self._verify_feed_access()
+            return True
 
         except Exception:
-            return False
+            return True
