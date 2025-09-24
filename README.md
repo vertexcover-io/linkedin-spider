@@ -1,4 +1,4 @@
-# linkedin-scraper-mcp
+# linkedin-spider-mcp
 
 Effortless LinkedIn scraping with zero detection. Extract, export, and automate your LinkedIn data.
 
@@ -35,7 +35,7 @@ uv sync
 Perfect for integration into your existing Python applications:
 
 ```python
-from linkedin_scraper import LinkedInScraper, ScraperConfig
+from linkedin_scraper import LinkedInSpider, ScraperConfig
 
 config = ScraperConfig(headless=True, page_load_timeout=30)
 ```
@@ -43,7 +43,7 @@ config = ScraperConfig(headless=True, page_load_timeout=30)
 ```python
 # Authenticate (use either email/password or cookie).
 # Authentication is mostly done once and the session is saved in the chrome profile
-scraper = LinkedInScraper(
+scraper = LinkedInSpider(
     email="your_email@example.com",
     password="your_password",
     config=config
@@ -138,9 +138,9 @@ For more examples : [examples](./examples)
 Great for quick data extraction and scripting:
 
 ```bash
-uv run linkedin_scraper_cli search -q "product manager" -n 10 -o results.json
-uv run linkedin_scraper_cli profile -u "https://linkedin.com/in/johndoe" -o profile.json
-uv run linkedin_scraper_cli company -u "https://linkedin.com/company/openai" -o company.json
+uv run linkedin-spider-cli search -q "product manager" -n 10 -o results.json
+uv run linkedin-spider-cli profile -u "https://linkedin.com/in/johndoe" -o profile.json
+uv run linkedin-spider-cli company -u "https://linkedin.com/company/openai" -o company.json
 ```
 
 ### 3. MCP Server
@@ -182,7 +182,7 @@ TRANSPORT=sse uv run linkedin_mcp
 
 ```bash
 # Add to Claude Code
-claude mcp add linkedin-scraper --transport sse <server-url> 
+claude mcp add linkedin-spider --transport sse <server-url> 
 # Example server URL format: http://localhost:8080/sse
 ```
 
@@ -208,7 +208,7 @@ Then add this to your Claude Desktop configuration:
 ```json
 {
   "mcpServers": {
-    "linkedin-scraper": {
+    "linkedin-spider": {
       "command": "docker",
       "args": [
         "run", "--rm", "-i",
@@ -236,7 +236,7 @@ Then configure Claude Desktop:
 ```json
 {
   "mcpServers": {
-    "linkedin-scraper": {
+    "linkedin-spider": {
       "command": "linkedin-mcp",
       "args": ["stdio"],
       "env": {
@@ -291,13 +291,13 @@ docker run --rm -i -e TRANSPORT=stdio --env-file .env linkedin-mcp
 5. Use it in your code:
 
 ```python
-scraper = LinkedInScraper(li_at_cookie="your_cookie_value")
+scraper = LinkedInSpider(li_at_cookie="your_cookie_value")
 ```
 
 ### Method 2: Email & Password (Recommended)
 
 ```python
-scraper = LinkedInScraper(
+scraper = LinkedInSpider(
     email="your_email@example.com",
     password="your_password"
 )

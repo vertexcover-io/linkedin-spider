@@ -1,18 +1,17 @@
 """
 Example: Connections Scraping
-Demonstrates how to scrape your LinkedIn connections and connection requests.
 """
 
 import asyncio
 
-from linkedin_scraper import LinkedInScraper, ScraperConfig
+from linkedin_scraper import LinkedInSpider, ScraperConfig
 
 
 async def scrape_connections_example():
     """Example of scraping your LinkedIn connections."""
 
     config = ScraperConfig(headless=True, page_load_timeout=30)
-    scraper = LinkedInScraper(config)
+    scraper = LinkedInSpider(config)
 
     try:
         print("=== Your Connections ===")
@@ -49,7 +48,7 @@ async def send_connection_request_example():
     """Example of sending a connection request."""
 
     config = ScraperConfig(headless=True, page_load_timeout=30)
-    scraper = LinkedInScraper(config)
+    scraper = LinkedInSpider(config)
 
     try:
         profile_url = "https://www.linkedin.com/in/akto/"
@@ -75,7 +74,7 @@ async def bulk_connection_requests_example():
     """Example of sending multiple connection requests."""
 
     config = ScraperConfig(headless=True, page_load_timeout=30)
-    scraper = LinkedInScraper(config)
+    scraper = LinkedInSpider(config)
     try:
         profiles_to_connect = [
             {

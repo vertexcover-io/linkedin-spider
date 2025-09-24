@@ -1,9 +1,8 @@
 """
 Example: Profile Scraping
-Demonstrates how to scrape a LinkedIn profile using the LinkedinScraper.
 """
 
-from linkedin_scraper import LinkedInScraper, ScraperConfig
+from linkedin_scraper import LinkedInSpider, ScraperConfig
 
 
 def scrape_profile_example():
@@ -16,7 +15,7 @@ def scrape_profile_example():
 
     # Use either cookie or email and pass.
     # Authentication is usually done once as the session is stored for the further requests.
-    scraper = LinkedInScraper(
+    scraper = LinkedInSpider(
         email="your_email@example.com", password="your_password", config=config
     )
     try:

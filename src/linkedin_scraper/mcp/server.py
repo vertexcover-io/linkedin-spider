@@ -1,16 +1,13 @@
 import json
 import logging
 import os
-import sys
 
 from dotenv import load_dotenv
-
-load_dotenv()
-
-
 from fastmcp import FastMCP
 
-from linkedin_scraper import LinkedInScraper, ScraperConfig
+from linkedin_scraper import LinkedInSpider, ScraperConfig
+
+load_dotenv()
 
 logging.basicConfig(
     level=logging.INFO, format="%(asctime)s - %(name)s - %(levelname)s - %(message)s"
@@ -18,7 +15,7 @@ logging.basicConfig(
 logging.getLogger("urllib3.connectionpool").setLevel(logging.ERROR)
 logger = logging.getLogger(__name__)
 
-app = FastMCP("linkedin-scraper")
+app = FastMCP("linkedin-spider")
 
 _scraper_instance = None
 
@@ -33,7 +30,7 @@ def get_scraper():
         config = ScraperConfig()
         config.headless = os.getenv("HEADLESS", "true").lower() == "true"
 
-        _scraper_instance = LinkedInScraper(
+        _scraper_instance = LinkedInSpider(
             email=email, password=password, li_at_cookie=li_at_cookie, config=config
         )
 
@@ -228,7 +225,24 @@ async def send_connection_request(profile_url: str, note: str | None = None) -> 
         return f"Error sending connection request to {profile_url}: {e!s}"
 
 
-def configure_mcp_server(transport: str, **kwargs):
+def main():
+    import sys
+
+    # Parse command line arguments
+    transport = "stdio"  # Default transport
+    host = os.getenv("HOST", "127.0.0.1")
+    port = int(os.getenv("PORT", "8000"))
+
+    if len(sys.argv) > 1:
+        transport = sys.argv[1].lower()
+
+    # Parse additional arguments for host and port
+    for i, arg in enumerate(sys.argv):
+        if arg == "--host" and i + 1 < len(sys.argv):
+            host = sys.argv[i + 1]
+        elif arg == "--port" and i + 1 < len(sys.argv):
+            port = int(sys.argv[i + 1])
+
     logger.info(f"Starting LinkedIn MCP {transport.upper()} Server...")
 
     try:
@@ -240,38 +254,22 @@ def configure_mcp_server(transport: str, **kwargs):
         logger.info("Server will start but scraper will be inactive")
 
     logger.info(
-        f"FastMCP {transport.upper()} Server initialized with tools: scrape_profile, search_profiles, scrape_company, scrape_incoming_connections, scrape_outgoing_connections, scrape_conversations_list, scrape_conversation, send_connection_request, get_session_status, reset_session"
+        f"FastMCP {transport.upper()} Server initialized with tools: scrape_profile, search_profiles, scrape_company, "
+        "scrape_incoming_connections, scrape_outgoing_connections, scrape_conversations_list, "
+        "scrape_conversation, send_connection_request, get_session_status, reset_session"
     )
 
     if transport in ["sse", "http", "streamable-http"]:
-        host = kwargs.get("host", "127.0.0.1")
-        port = kwargs.get("port", 8000)
-        logger.info(f"Server is ready and waiting for {transport} connections...")
-        logger.info(f"Starting server on {host}:{port}")
+        logger.info(f"Starting {transport} server on {host}:{port}")
         app.run(transport=transport, host=host, port=port)
     elif transport == "stdio":
-        logger.info("Server is ready and waiting for stdio connections...")
+        logger.info("Starting stdio server")
         app.run(transport="stdio")
     else:
-        raise ValueError(f"Unsupported transport: {transport}")
-
-
-def main():
-    host = os.getenv("HOST", "127.0.0.1")
-    port = int(os.getenv("PORT", "8000"))
-
-    for i, arg in enumerate(sys.argv):
-        if arg == "--host" and i + 1 < len(sys.argv):
-            host = sys.argv[i + 1]
-        elif arg == "--port" and i + 1 < len(sys.argv):
-            port = int(sys.argv[i + 1])
-
-    configure_mcp_server("sse", host=host, port=port)
-
-
-def sse_main():
-    main()
+        logger.error(f"Unsupported transport: {transport}")
+        logger.info("Supported transports: stdio, sse, http, streamable-http")
+        sys.exit(1)
 
 
 if __name__ == "__main__":
-    sse_main()
+    main()
