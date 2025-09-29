@@ -181,9 +181,149 @@ class AuthManager:
         ]
         return any(indicator in current_url for indicator in challenge_indicators)
 
+    def _is_verification_code_challenge(self) -> bool:
+        """Check if current challenge is a verification code challenge."""
+        try:
+            verification_input = self.driver.find_elements(By.ID, "input__email_verification_pin")
+            if verification_input:
+                return True
+
+            email_pin_form = self.driver.find_elements(By.ID, "email-pin-challenge")
+            if email_pin_form:
+                return True
+
+            page_source = self.driver.page_source.lower()
+            verification_indicators = [
+                "verification code",
+                "enter the code",
+                "sent to your email",
+                "email verification",
+                "pin verification"
+            ]
+            return any(indicator in page_source for indicator in verification_indicators)
+        except Exception:
+            return False
+
+    def _handle_verification_code_challenge(self) -> bool:
+        """Handle verification code challenge with CLI input."""
+        try:
+            print("\n📧 Email verification code required")
+            print("Please check your email for the verification code.")
+
+            verification_code = input("Enter the 6-digit verification code: ").strip()
+
+            if not verification_code or not verification_code.isdigit() or len(verification_code) != 6:
+                print("[ERROR] Invalid verification code. Please enter a 6-digit number.")
+                return False
+
+            input_selectors = [
+                "input__email_verification_pin",
+                "input[name='pin']",
+                "input[type='number'][maxlength='6']",
+                ".input_verification_pin"
+            ]
+
+            input_field = None
+            for selector in input_selectors:
+                try:
+                    if selector.startswith(".") or selector.startswith("["):
+                        elements = self.driver.find_elements(By.CSS_SELECTOR, selector)
+                    else:
+                        elements = self.driver.find_elements(By.ID, selector)
+
+                    if elements and elements[0].is_displayed():
+                        input_field = elements[0]
+                        break
+                except Exception:
+                    continue
+
+            if not input_field:
+                print("[ERROR] Could not find verification code input field")
+                return False
+
+            input_field.clear()
+            self.human_behavior.click(input_field)
+            self.human_behavior.type_text(input_field, verification_code)
+            self.human_behavior.delay(0.5, 1)
+
+            submit_selectors = [
+                "email-pin-submit-button",
+                "button[type='submit']",
+                ".form__submit",
+                "input[type='submit']"
+            ]
+
+            submit_button = None
+            for selector in submit_selectors:
+                try:
+                    if selector.startswith(".") or selector.startswith("["):
+                        elements = self.driver.find_elements(By.CSS_SELECTOR, selector)
+                    else:
+                        elements = self.driver.find_elements(By.ID, selector)
+
+                    if elements and elements[0].is_displayed() and elements[0].is_enabled():
+                        submit_button = elements[0]
+                        break
+                except Exception:
+                    continue
+
+            if not submit_button:
+                print("[ERROR] Could not find submit button")
+                return False
+
+            self.human_behavior.click(submit_button)
+            self.human_behavior.delay(3, 5)
+
+            current_url = self.driver.current_url.lower()
+
+            if self._is_verification_code_challenge():
+                page_source = self.driver.page_source.lower()
+                if "wrong" in page_source or "incorrect" in page_source or "error" in page_source:
+                    print("[ERROR] Incorrect verification code entered")
+                    return False
+
+                print("[INFO] Challenge still present, verification may have failed")
+                return False
+
+            if self._is_authenticated():
+                print("[SUCCESS] Verification code accepted!")
+                return True
+
+            if "feed" in current_url or "mynetwork" in current_url or "linkedin.com" in current_url:
+                self.human_behavior.delay(2, 3)
+                if self._is_authenticated():
+                    print("[SUCCESS] Authentication successful after verification!")
+                    return True
+
+            print("[ERROR] Verification submitted but authentication status unclear")
+            return False
+
+        except Exception as e:
+            print(f"[ERROR] Failed to handle verification code: {str(e)}")
+            return False
+
     def _handle_challenge(self) -> bool:
         """Handle security challenges with user interaction."""
         print("\n🔒 Security challenge detected!")
+
+        if self._is_verification_code_challenge():
+            print("Verification code challenge detected - attempting automatic handling...")
+
+            max_code_attempts = 2
+            for attempt in range(1, max_code_attempts + 1):
+                print(f"\n[ATTEMPT] Verification code attempt {attempt}/{max_code_attempts}")
+
+                if self._handle_verification_code_challenge():
+                    return True
+
+                if attempt < max_code_attempts:
+                    print("Would you like to try entering the verification code again? (y/n)")
+                    retry = input().strip().lower()
+                    if retry != 'y' and retry != 'yes':
+                        break
+
+            print("Automatic verification code handling failed. Falling back to manual challenge handling...")
+
         print("Please complete the challenge manually in the browser window.")
 
         max_attempts = 3

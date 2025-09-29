@@ -169,7 +169,7 @@ class DriverManager:
 
     def _setup_profile_directory(self) -> None:
         """Setup profile directory for persistent sessions."""
-        profile_base = Path.cwd() / ".linkedin_spider_profiles"
+        profile_base = Path.home() / ".linkedin_spider_profiles"
         profile_base.mkdir(exist_ok=True)
 
         self.profile_dir = profile_base / "default_profile"
