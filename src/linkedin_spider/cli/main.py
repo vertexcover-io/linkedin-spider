@@ -36,10 +36,13 @@ def search(
     cookie: Annotated[
         str | None, Parameter(help="LinkedIn li_at cookie for authentication")
     ] = None,
+    proxy: Annotated[
+        str | None, Parameter(help="Proxy server (e.g., http://user:pass@host:port)")
+    ] = None,
 ):
     """Search for LinkedIn profiles."""
     try:
-        config = _create_config(headless)
+        config = _create_config(headless, proxy)
         credentials = _get_credentials(email, password, cookie)
 
         scraper = LinkedinSpider(
@@ -78,10 +81,13 @@ def profile(
     cookie: Annotated[
         str | None, Parameter(help="LinkedIn li_at cookie for authentication")
     ] = None,
+    proxy: Annotated[
+        str | None, Parameter(help="Proxy server (e.g., http://user:pass@host:port)")
+    ] = None,
 ):
     """Scrape a specific LinkedIn profile."""
     try:
-        config = _create_config(headless)
+        config = _create_config(headless, proxy)
         credentials = _get_credentials(email, password, cookie)
 
         scraper = LinkedinSpider(
@@ -124,10 +130,13 @@ def company(
     cookie: Annotated[
         str | None, Parameter(help="LinkedIn li_at cookie for authentication")
     ] = None,
+    proxy: Annotated[
+        str | None, Parameter(help="Proxy server (e.g., http://user:pass@host:port)")
+    ] = None,
 ):
     """Scrape a LinkedIn company page."""
     try:
-        config = _create_config(headless)
+        config = _create_config(headless, proxy)
         credentials = _get_credentials(email, password, cookie)
 
         scraper = LinkedinSpider(
@@ -172,10 +181,13 @@ def connections(
     cookie: Annotated[
         str | None, Parameter(help="LinkedIn li_at cookie for authentication")
     ] = None,
+    proxy: Annotated[
+        str | None, Parameter(help="Proxy server (e.g., http://user:pass@host:port)")
+    ] = None,
 ):
     """Scrape incoming connection requests."""
     try:
-        config = _create_config(headless)
+        config = _create_config(headless, proxy)
         credentials = _get_credentials(email, password, cookie)
 
         scraper = LinkedinSpider(
@@ -201,12 +213,14 @@ def connections(
             scraper.close()
 
 
-def _create_config(headless: bool | None) -> ScraperConfig:
+def _create_config(headless: bool | None, proxy: str | None = None) -> ScraperConfig:
     """Create scraper configuration."""
     if headless is None:
         headless = os.getenv("HEADLESS", "true").lower() in ("true", "1", "yes")
 
-    return ScraperConfig(headless=headless)
+    proxy_server = proxy or os.getenv("PROXY_SERVER")
+
+    return ScraperConfig(headless=headless, proxy_server=proxy_server)
 
 
 def _get_credentials(email: str | None, password: str | None, cookie: str | None) -> dict:

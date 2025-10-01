@@ -1,4 +1,5 @@
 import json
+import logging
 import os
 import platform
 import shutil
@@ -8,13 +9,17 @@ from pathlib import Path
 
 import psutil
 import requests
-from selenium import webdriver
+from seleniumwire import webdriver
 from selenium.webdriver.chrome.options import Options
 from selenium.webdriver.chrome.service import Service
 from selenium.webdriver.common.action_chains import ActionChains
 from selenium.webdriver.support.ui import WebDriverWait
 
 from linkedin_spider.core.config import ScraperConfig
+
+logging.getLogger("seleniumwire").setLevel(logging.ERROR)
+logging.getLogger("hpack").setLevel(logging.ERROR)
+logging.getLogger("urllib3").setLevel(logging.ERROR)
 
 
 class DriverManager:
@@ -34,27 +39,41 @@ class DriverManager:
         self._terminate_existing_chrome_processes()
 
         chrome_options = self._create_chrome_options()
+        seleniumwire_options = self._create_seleniumwire_options()
 
         try:
             driver_path = self._ensure_chromedriver()
             if driver_path:
                 service = Service(str(driver_path))
-                self.driver = webdriver.Chrome(service=service, options=chrome_options)
+                self.driver = webdriver.Chrome(
+                    service=service,
+                    options=chrome_options,
+                    seleniumwire_options=seleniumwire_options,
+                )
             else:
-                self.driver = webdriver.Chrome(options=chrome_options)
+                self.driver = webdriver.Chrome(
+                    options=chrome_options, seleniumwire_options=seleniumwire_options
+                )
         except Exception as e:
-            # If we still get the user-data-dir error, try terminating processes again
             if "user data directory is already in use" in str(e).lower():
                 self._terminate_existing_chrome_processes()
                 try:
                     if driver_path:
                         service = Service(str(driver_path))
-                        self.driver = webdriver.Chrome(service=service, options=chrome_options)
+                        self.driver = webdriver.Chrome(
+                            service=service,
+                            options=chrome_options,
+                            seleniumwire_options=seleniumwire_options,
+                        )
                     else:
-                        self.driver = webdriver.Chrome(options=chrome_options)
+                        self.driver = webdriver.Chrome(
+                            options=chrome_options, seleniumwire_options=seleniumwire_options
+                        )
                 except Exception:
                     try:
-                        self.driver = webdriver.Chrome(options=chrome_options)
+                        self.driver = webdriver.Chrome(
+                            options=chrome_options, seleniumwire_options=seleniumwire_options
+                        )
                     except Exception as fallback_error:
                         raise Exception(
                             f"Chrome driver initialization failed: {fallback_error}"
@@ -209,6 +228,20 @@ class DriverManager:
         chrome_options.add_experimental_option("prefs", self.config.chrome_prefs)
 
         return chrome_options
+
+    def _create_seleniumwire_options(self) -> dict:
+        """Create selenium-wire options for proxy configuration."""
+        if not self.config.proxy_server:
+            return {}
+
+        proxy_url = self.config.proxy_server
+        return {
+            "proxy": {
+                "http": proxy_url,
+                "https": proxy_url,
+                "no_proxy": "localhost,127.0.0.1",
+            }
+        }
 
     def _configure_stealth_mode(self) -> None:
         """Configure stealth mode to avoid detection."""

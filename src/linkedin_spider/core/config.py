@@ -18,6 +18,8 @@ class ScraperConfig:
     typing_delay_range: tuple[float, float] = (0.03, 0.08)
     mouse_move_variance: int = 10
 
+    proxy_server: str | None = None
+
     @property
     def user_agent(self) -> str:
         """Get random user agent for current platform."""

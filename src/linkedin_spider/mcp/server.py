@@ -258,13 +258,17 @@ def serve(
         bool,
         Parameter(help="Run browser in headless mode"),
     ] = True,
+    proxy: Annotated[
+        str | None,
+        Parameter(help="Proxy server (e.g., http://user:pass@host:port)"),
+    ] = None,
 ):
     """Start the LinkedIn MCP server."""
     logger.info(f"Starting LinkedIn MCP {transport.upper()} Server...")
 
     try:
         logger.info("Initializing LinkedIn scraper...")
-        _initialize_scraper(email, password, cookie, headless)
+        _initialize_scraper(email, password, cookie, headless, proxy)
         logger.info("LinkedIn scraper initialized successfully")
     except Exception as e:
         logger.error(f"Failed to initialize scraper: {e}")
@@ -294,13 +298,15 @@ def _initialize_scraper(
     password: str | None = None,
     cookie: str | None = None,
     headless: bool = True,
+    proxy: str | None = None,
 ) -> None:
     """Initialize the scraper with proper error handling."""
     global _scraper_instance
 
     if _scraper_instance is None:
         credentials = _get_credentials(email, password, cookie)
-        config = ScraperConfig(headless=headless)
+        proxy_server = proxy or os.getenv("PROXY_SERVER")
+        config = ScraperConfig(headless=headless, proxy_server=proxy_server)
 
         _scraper_instance = LinkedinSpider(
             email=credentials.get("email"),
