@@ -12,7 +12,6 @@ from linkedin_spider.scrapers.search_filters import SearchFilterHandler
 
 
 class SearchScraper(BaseScraper):
-    """Scraper for LinkedIn search functionality."""
 
     def __init__(self, driver: Any, wait: Any, human_behavior: Any, tracking_handler: Any) -> None:
         super().__init__(driver, wait, human_behavior, tracking_handler)
@@ -49,7 +48,6 @@ class SearchScraper(BaseScraper):
             return ""
 
     def _scroll_and_wait(self, pixels: int = 300) -> None:
-        """Scroll and wait with human behavior."""
         try:
             self.driver.execute_script(f"window.scrollBy(0, {pixels});")
             self.human_behavior.delay(0.5, 1.5)
@@ -125,10 +123,94 @@ class SearchScraper(BaseScraper):
             followers_of=followers_of,
         )
 
+    def _extract_name_and_url(self, container: WebElement) -> tuple[str, str]:
+        name_selectors = [
+            'a[data-view-name="search-result-lockup-title"]',
+            'span.entity-result__title-text a',
+            'a.app-aware-link span[aria-hidden="true"]',
+        ]
+
+        for selector in name_selectors:
+            elem = self._find_element_in_parent(container, By.CSS_SELECTOR, selector)
+            if elem:
+                if elem.tag_name == 'a':
+                    name = self._extract_text_safe(elem)
+                    href = self._extract_attribute_safe(elem, "href")
+                else:
+                    name = self._extract_text_safe(elem)
+                    try:
+                        parent_link = elem.find_element(By.XPATH, "./ancestor::a")
+                        href = self._extract_attribute_safe(parent_link, "href")
+                    except:
+                        href = ""
+
+                profile_url = href if href and "linkedin.com/in/" in href else "N/A"
+                if name and name != "N/A":
+                    return name, profile_url
+
+        return "N/A", "N/A"
+
+    def _extract_headline(self, container: WebElement) -> str:
+        headline_selectors = [
+            'div.entity-result__primary-subtitle',
+            'div.uRAGqgyrebFAqmZybXjjuEydAVDcKjaBXQ',
+            'div[class*="primary-subtitle"]',
+        ]
+
+        for selector in headline_selectors:
+            elem = self._find_element_in_parent(container, By.CSS_SELECTOR, selector)
+            if elem:
+                text = self._extract_text_safe(elem)
+                if text and text != "N/A":
+                    return text
+
+        try:
+            p_elements = container.find_elements(By.CSS_SELECTOR, "p")
+            for p_elem in p_elements:
+                text = self._extract_text_safe(p_elem)
+                if text and not text.startswith("Current:") and not text.startswith("Past:"):
+                    return text
+        except:
+            pass
+
+        return "N/A"
+
+    def _extract_location(self, container: WebElement) -> str:
+        location_selectors = [
+            'div.entity-result__secondary-subtitle',
+            'div.boQrrVDcEFdwcSUvEnLXcxXbyehJhXYIRZuM',
+            'div[class*="secondary-subtitle"]',
+        ]
+
+        for selector in location_selectors:
+            elem = self._find_element_in_parent(container, By.CSS_SELECTOR, selector)
+            if elem:
+                text = self._extract_text_safe(elem)
+                if text and text != "N/A":
+                    return text
+
+        return "N/A"
+
+    def _extract_image_url(self, container: WebElement) -> str:
+        image_selectors = [
+            "img.presence-entity__image",
+            "img.ivm-view-attr__img--centered",
+            "img[class*='EntityPhoto']",
+            "img",
+        ]
+
+        for selector in image_selectors:
+            img_elem = self._find_element_in_parent(container, By.CSS_SELECTOR, selector)
+            if img_elem:
+                src = self._extract_attribute_safe(img_elem, "src")
+                if src and src != "N/A" and "http" in src:
+                    return src
+
+        return "N/A"
+
     def scrape(
         self, query: str, max_results: int = 10, filters: dict | None = None
     ) -> list[dict[str, Any]]:
-        """Main search implementation."""
         if filters:
             self.search_and_apply_filters(
                 query=query,
@@ -151,38 +233,30 @@ class SearchScraper(BaseScraper):
             self.human_behavior.delay(1.0, 3.0)
 
             results = []
-            containers = self._find_elements_safe(
-                By.CSS_SELECTOR, "div[data-view-name='people-search-result']"
-            )
+            container_selectors = [
+                "div[data-view-name='search-entity-result-universal-template']",
+                "div[data-view-name='people-search-result']",
+                "li.reusable-search__result-container",
+                "div.entity-result",
+            ]
+
+            containers = []
+            for selector in container_selectors:
+                containers = self._find_elements_safe(By.CSS_SELECTOR, selector)
+                if containers:
+                    self.log_action("INFO", f"Found {len(containers)} containers using selector: {selector}")
+                    break
+
+            if not containers:
+                self.log_action("WARNING", "No result containers found")
+                return []
 
             for i, container in enumerate(containers[:max_results]):
                 try:
-                    name_elem = self._find_element_in_parent(
-                        container, By.CSS_SELECTOR, 'a[data-view-name="search-result-lockup-title"]'
-                    )
-                    if name_elem:
-                        name = self._extract_text_safe(name_elem)
-                        href = self._extract_attribute_safe(name_elem, "href")
-                        profile_url = href if href and "linkedin.com/in/" in href else "N/A"
-                    else:
-                        name = "N/A"
-                        profile_url = "N/A"
-
-                    headline_elements = container.find_elements(By.CSS_SELECTOR, "p")
-                    headline = (
-                        headline_elements[1].text.strip() if len(headline_elements) > 1 else "N/A"
-                    )
-                    location = (
-                        headline_elements[2].text.strip() if len(headline_elements) > 2 else "N/A"
-                    )
-
-                    try:
-                        img_elem = self._find_element_in_parent(container, By.CSS_SELECTOR, "img")
-                        image_url = (
-                            self._extract_attribute_safe(img_elem, "src") if img_elem else "N/A"
-                        )
-                    except:
-                        image_url = "N/A"
+                    name, profile_url = self._extract_name_and_url(container)
+                    headline = self._extract_headline(container)
+                    location = self._extract_location(container)
+                    image_url = self._extract_image_url(container)
 
                     result = {
                         "name": name,
@@ -191,6 +265,7 @@ class SearchScraper(BaseScraper):
                         "profile_url": profile_url,
                         "image_url": image_url,
                     }
+
                     is_duplicate = False
                     for existing_result in results:
                         if (

@@ -41,48 +41,31 @@ class DriverManager:
         chrome_options = self._create_chrome_options()
         seleniumwire_options = self._create_seleniumwire_options()
 
+        driver_path = self._ensure_chromedriver()
+        service = Service(executable_path=str(driver_path)) if driver_path else None
+
         try:
-            driver_path = self._ensure_chromedriver()
-            if driver_path:
-                service = Service(str(driver_path))
+            if seleniumwire_options:
                 self.driver = webdriver.Chrome(
                     service=service,
                     options=chrome_options,
                     seleniumwire_options=seleniumwire_options,
                 )
             else:
-                self.driver = webdriver.Chrome(
-                    options=chrome_options, seleniumwire_options=seleniumwire_options
-                )
+                self.driver = webdriver.Chrome(service=service, options=chrome_options)
         except Exception as e:
             if "user data directory is already in use" in str(e).lower():
                 self._terminate_existing_chrome_processes()
-                try:
-                    if driver_path:
-                        service = Service(str(driver_path))
-                        self.driver = webdriver.Chrome(
-                            service=service,
-                            options=chrome_options,
-                            seleniumwire_options=seleniumwire_options,
-                        )
-                    else:
-                        self.driver = webdriver.Chrome(
-                            options=chrome_options, seleniumwire_options=seleniumwire_options
-                        )
-                except Exception:
-                    try:
-                        self.driver = webdriver.Chrome(
-                            options=chrome_options, seleniumwire_options=seleniumwire_options
-                        )
-                    except Exception as fallback_error:
-                        raise Exception(
-                            f"Chrome driver initialization failed: {fallback_error}"
-                        ) from e
+                if seleniumwire_options:
+                    self.driver = webdriver.Chrome(
+                        service=service,
+                        options=chrome_options,
+                        seleniumwire_options=seleniumwire_options,
+                    )
+                else:
+                    self.driver = webdriver.Chrome(service=service, options=chrome_options)
             else:
-                try:
-                    self.driver = webdriver.Chrome(options=chrome_options)
-                except Exception as fallback_error:
-                    raise Exception(f"Chrome driver initialization failed: {fallback_error}") from e
+                raise Exception(f"Chrome driver initialization failed: {e}") from e
 
         self._configure_stealth_mode()
         self.wait = WebDriverWait(self.driver, self.config.page_load_timeout)
@@ -209,11 +192,18 @@ class DriverManager:
             chrome_options.binary_location = chrome_path
 
         if self.config.headless:
-            chrome_options.add_argument("--headless")
+            chrome_options.add_argument("--headless=new")
 
         chrome_options.add_argument(
             f"--window-size={self.config.window_size[0]},{self.config.window_size[1]}"
         )
+
+        # Add compatibility and stability options
+        chrome_options.add_argument("--no-sandbox")
+        chrome_options.add_argument("--disable-dev-shm-usage")
+        chrome_options.add_argument("--disable-gpu")
+        chrome_options.add_argument("--disable-software-rasterizer")
+        chrome_options.add_argument("--disable-extensions")
 
         for option in self.config.chrome_options:
             chrome_options.add_argument(option)
@@ -322,11 +312,27 @@ class DriverManager:
             response = requests.get(api_url, timeout=10)
             data = response.json()
 
-            system_map = {"Windows": "win64", "Darwin": "mac-x64", "Linux": "linux64"}
+            # Detect architecture
+            machine = platform.machine().lower()
+            system = platform.system()
 
-            platform_key = system_map.get(platform.system())
-            if not platform_key:
+            if system == "Windows":
+                platform_key = "win64" if "64" in machine or machine in ["amd64", "x86_64"] else "win32"
+            elif system == "Darwin":
+                platform_key = "mac-arm64" if machine == "arm64" else "mac-x64"
+            elif system == "Linux":
+                # Check for ARM64 architecture
+                if machine in ["aarch64", "arm64"]:
+                    # Chrome for Testing doesn't provide ARM64 Linux builds
+                    # Need to use system chromedriver or build from source
+                    logging.error(f"ARM64 Linux detected. ChromeDriver download not available for this architecture.")
+                    logging.error(f"Please install chromium-chromedriver package: apt-get install chromium-chromedriver")
+                    return None, None
+                platform_key = "linux64"
+            else:
                 return None, None
+
+            logging.info(f"Detected platform: {system}, architecture: {machine}, using: {platform_key}")
 
             for version_info in reversed(data["versions"]):
                 if version_info["version"].startswith(major_version):
@@ -337,12 +343,14 @@ class DriverManager:
                             return download["url"], version_info["version"]
 
             fallback_urls = {
-                "Windows": f"https://storage.googleapis.com/chrome-for-testing-public/{major_version}.0.0.0/win64/chromedriver-win64.zip",
-                "Darwin": f"https://storage.googleapis.com/chrome-for-testing-public/{major_version}.0.0.0/mac-x64/chromedriver-mac-x64.zip",
-                "Linux": f"https://storage.googleapis.com/chrome-for-testing-public/{major_version}.0.0.0/linux64/chromedriver-linux64.zip",
+                "win64": f"https://storage.googleapis.com/chrome-for-testing-public/{major_version}.0.0.0/win64/chromedriver-win64.zip",
+                "win32": f"https://storage.googleapis.com/chrome-for-testing-public/{major_version}.0.0.0/win32/chromedriver-win32.zip",
+                "mac-x64": f"https://storage.googleapis.com/chrome-for-testing-public/{major_version}.0.0.0/mac-x64/chromedriver-mac-x64.zip",
+                "mac-arm64": f"https://storage.googleapis.com/chrome-for-testing-public/{major_version}.0.0.0/mac-arm64/chromedriver-mac-arm64.zip",
+                "linux64": f"https://storage.googleapis.com/chrome-for-testing-public/{major_version}.0.0.0/linux64/chromedriver-linux64.zip",
             }
 
-            return fallback_urls.get(platform.system()), f"{major_version}.0.0.0"
+            return fallback_urls.get(platform_key), f"{major_version}.0.0.0"
 
         except Exception:
             return None, None
@@ -352,6 +360,7 @@ class DriverManager:
         try:
             drivers_dir = Path.home() / ".chromedriver"
             drivers_dir.mkdir(exist_ok=True)
+            logging.info(f"Downloading ChromeDriver from: {download_url}")
 
             zip_path = drivers_dir / f"chromedriver_{version}.zip"
 
@@ -361,6 +370,8 @@ class DriverManager:
             with open(zip_path, "wb") as f:
                 for chunk in response.iter_content(chunk_size=8192):
                     f.write(chunk)
+
+            logging.info(f"Download complete. Extracting to: {drivers_dir}")
 
             with zipfile.ZipFile(zip_path, "r") as zip_ref:
                 zip_ref.extractall(drivers_dir)
@@ -374,54 +385,78 @@ class DriverManager:
             for file_path in drivers_dir.rglob(executable_name):
                 if platform.system() != "Windows":
                     file_path.chmod(0o755)
+                logging.info(f"ChromeDriver extracted to: {file_path}")
                 return file_path
 
+            logging.error(f"ChromeDriver executable '{executable_name}' not found after extraction")
             return None
 
-        except Exception:
+        except Exception as e:
+            logging.error(f"Failed to download/extract ChromeDriver: {e}")
             return None
-
-    def _find_existing_chromedriver(self) -> Path | None:
-        """Find existing ChromeDriver installation."""
-        env_path = os.environ.get("CHROMEDRIVER_PATH")
-        if env_path:
-            path = Path(env_path)
-            if path.exists() and os.access(path, os.X_OK):
-                return path
-
-        drivers_dir = Path.home() / ".chromedriver"
-        if drivers_dir.exists():
-            for file_path in drivers_dir.rglob("chromedriver*"):
-                if file_path.is_file() and os.access(file_path, os.X_OK):
-                    return file_path
-
-        system_paths = {
-            "Windows": ["chromedriver.exe", "chromedriver"],
-            "Darwin": ["/usr/local/bin/chromedriver", "/usr/bin/chromedriver"],
-            "Linux": ["/usr/local/bin/chromedriver", "/usr/bin/chromedriver"],
-        }
-
-        for path_str in system_paths.get(platform.system(), []):
-            if shutil.which(path_str):
-                return Path(path_str)
-            path = Path(path_str)
-            if path.exists() and os.access(path, os.X_OK):
-                return path
-
-        return None
 
     def _ensure_chromedriver(self) -> Path | None:
         """Ensure ChromeDriver is available."""
-        existing_driver = self._find_existing_chromedriver()
-        if existing_driver:
-            return existing_driver
-
         chrome_version = self._get_chrome_version()
         if not chrome_version:
             chrome_version = "131.0.0.0"
 
-        download_url, version = self._get_chromedriver_download_url(chrome_version)
-        if not download_url:
-            return None
+        logging.info(f"Chrome version detected: {chrome_version}")
 
-        return self._download_and_extract_chromedriver(download_url, version)
+        # Check for version-matched driver in ~/.chromedriver first
+        drivers_dir = Path.home() / ".chromedriver"
+        if drivers_dir.exists():
+            for file_path in drivers_dir.rglob("chromedriver*"):
+                if file_path.is_file() and os.access(file_path, os.X_OK):
+                    logging.info(f"Using cached ChromeDriver: {file_path}")
+                    return file_path
+
+        # Check CHROMEDRIVER_PATH env var
+        env_path = os.environ.get("CHROMEDRIVER_PATH")
+        if env_path:
+            path = Path(env_path)
+            if path.exists() and os.access(path, os.X_OK):
+                logging.info(f"Using ChromeDriver from CHROMEDRIVER_PATH: {path}")
+                return path
+
+        # Check system paths (especially important for ARM64 Linux)
+        system_paths = [
+            "/usr/bin/chromedriver",
+            "/usr/local/bin/chromedriver",
+            "/snap/bin/chromium.chromedriver",  # Snap package
+        ]
+
+        for path_str in system_paths:
+            path = Path(path_str)
+            if path.exists() and os.access(path, os.X_OK):
+                logging.info(f"Using system ChromeDriver: {path}")
+                return path
+
+        # Try to find via which command
+        which_result = shutil.which("chromedriver")
+        if which_result:
+            logging.info(f"Using ChromeDriver from PATH: {which_result}")
+            return Path(which_result)
+
+        # Download version-matched driver (only for x86_64)
+        machine = platform.machine().lower()
+        if machine not in ["aarch64", "arm64"]:
+            logging.info(f"Downloading ChromeDriver matching Chrome {chrome_version}...")
+            download_url, version = self._get_chromedriver_download_url(chrome_version)
+            if download_url:
+                downloaded = self._download_and_extract_chromedriver(download_url, version)
+                if downloaded:
+                    logging.info(f"Successfully downloaded ChromeDriver to: {downloaded}")
+                    return downloaded
+                else:
+                    logging.error("Failed to download ChromeDriver")
+
+        # If we get here on ARM64, show helpful error
+        if machine in ["aarch64", "arm64"]:
+            logging.error("ChromeDriver not found on ARM64 Linux system")
+            logging.error("Please install: apt-get install chromium-chromedriver")
+            logging.error("Or for snap: snap install chromium")
+        else:
+            logging.error("Failed to get ChromeDriver download URL")
+
+        return None

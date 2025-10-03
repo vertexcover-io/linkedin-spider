@@ -31,37 +31,52 @@ class SearchFilterHandler:
         )
         self.driver.get(base_search_url)
 
-        self.human_behavior.delay(2, 4)
-        self.wait.until(
-            EC.presence_of_element_located(
-                (By.CSS_SELECTOR, "[data-view-name='search-filter-top-bar-select']")
+        try:
+            self.human_behavior.delay(2, 4)
+            self.wait.until(
+                EC.presence_of_element_located(
+                    (By.CSS_SELECTOR, "[data-view-name='search-filter-top-bar-select']")
+                )
             )
-        )
+        except TimeoutException:
+            print("Filter bar not found, continuing with basic search")
 
         applied_filters = {}
 
         if location:
-            location_filter = self._apply_location_filter(location)
-            if location_filter:
-                applied_filters["location"] = location_filter
-                self._click_show_results()
+            try:
+                location_filter = self._apply_location_filter(location)
+                if location_filter:
+                    applied_filters["location"] = location_filter
+                    self._click_show_results()
+            except Exception as e:
+                print(f"Failed to apply location filter: {e}")
 
         if industry:
-            industry_filter = self._apply_industry_filter(industry)
-            if industry_filter:
-                applied_filters["industry"] = industry_filter
-                self._click_show_results()
+            try:
+                industry_filter = self._apply_industry_filter(industry)
+                if industry_filter:
+                    applied_filters["industry"] = industry_filter
+                    self._click_show_results()
+            except Exception as e:
+                print(f"Failed to apply industry filter: {e}")
 
         if current_company:
-            company_filter = self._apply_company_filter(current_company)
-            if company_filter:
-                applied_filters["current_company"] = company_filter
-                self._click_show_results()
+            try:
+                company_filter = self._apply_company_filter(current_company)
+                if company_filter:
+                    applied_filters["current_company"] = company_filter
+                    self._click_show_results()
+            except Exception as e:
+                print(f"Failed to apply company filter: {e}")
 
         if connections:
-            connection_filter = self._apply_connection_filter(connections)
-            if connection_filter:
-                applied_filters["connections"] = connection_filter
+            try:
+                connection_filter = self._apply_connection_filter(connections)
+                if connection_filter:
+                    applied_filters["connections"] = connection_filter
+            except Exception as e:
+                print(f"Failed to apply connection filter: {e}")
 
         self.current_filters = applied_filters
         return self.driver.current_url

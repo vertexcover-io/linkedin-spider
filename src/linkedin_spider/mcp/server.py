@@ -27,7 +27,17 @@ _scraper_instance = None
 def get_scraper():
     global _scraper_instance
     if _scraper_instance is None:
-        raise RuntimeError("Scraper not initialized. Call _initialize_scraper() first.")
+        logger.info("Scraper not initialized yet, initializing now...")
+        try:
+            _initialize_scraper(
+                email=os.getenv("LINKEDIN_EMAIL"),
+                password=os.getenv("LINKEDIN_PASSWORD"),
+                cookie=os.getenv("LINKEDIN_COOKIE"),
+                headless=os.getenv("HEADLESS", "true").lower() == "true",
+                proxy=os.getenv("PROXY_SERVER"),
+            )
+        except Exception as e:
+            raise RuntimeError(f"Failed to initialize scraper: {e}") from e
     return _scraper_instance
 
 
@@ -323,14 +333,6 @@ def _get_credentials(email: str | None, password: str | None, cookie: str | None
         "password": password or os.getenv("LINKEDIN_PASSWORD"),
         "cookie": cookie or os.getenv("LINKEDIN_COOKIE"),
     }
-
-    if not any(credentials.values()):
-        raise ValueError(
-            "Authentication required. Provide either:\n"
-            "1. Email and password (--email, --password)\n"
-            "2. LinkedIn cookie (--cookie)\n"
-            "3. Set environment variables: LINKEDIN_EMAIL, LINKEDIN_PASSWORD, or LINKEDIN_COOKIE"
-        )
 
     return credentials
 
