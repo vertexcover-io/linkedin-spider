@@ -440,6 +440,7 @@ class SearchScraper(BaseScraper):
             - likes_count
             - comments_count
             - reposts_count
+            - comments (list of comment dictionaries)
         """
         post_data = {
             "author_name": "N/A",
@@ -454,6 +455,7 @@ class SearchScraper(BaseScraper):
             "likes_count": 0,
             "comments_count": 0,
             "reposts_count": 0,
+            "comments": [],
         }
 
         try:
@@ -478,6 +480,11 @@ class SearchScraper(BaseScraper):
             media_urls = self._extract_post_media(container)
             if media_urls:
                 post_data["media_urls"] = media_urls
+
+            # Extract comments if present
+            comments = self._extract_post_comments(container)
+            if comments:
+                post_data["comments"] = comments
 
         except Exception as e:
             self.log_action("WARNING", f"Error extracting post data: {e!s}")
@@ -898,3 +905,111 @@ class SearchScraper(BaseScraper):
             self.log_action("WARNING", f"Error extracting post media: {e!s}")
 
         return media_urls
+
+    def _extract_post_comments(
+        self, container: WebElement, max_comments: int = 10
+    ) -> list[dict[str, Any]]:
+        """Extract comments from a post.
+
+        Args:
+            container: Post container WebElement
+            max_comments: Maximum number of comments to extract (default: 10)
+
+        Returns:
+            List of comment dictionaries with keys:
+            - author_name
+            - author_profile_url
+            - comment_text
+            - comment_time
+            - reactions_count
+        """
+        comments = []
+
+        try:
+            # Find all comment entities
+            comment_entities = container.find_elements(
+                By.CSS_SELECTOR, "article.comments-comment-entity"
+            )
+
+            for comment_elem in comment_entities[:max_comments]:
+                try:
+                    comment_data = {
+                        "author_name": "N/A",
+                        "author_profile_url": "N/A",
+                        "comment_text": "N/A",
+                        "comment_time": "N/A",
+                        "reactions_count": 0,
+                    }
+
+                    # Extract author name
+                    name_elem = self._find_element_in_parent(
+                        comment_elem,
+                        By.CSS_SELECTOR,
+                        "span.comments-comment-meta__description-title",
+                    )
+                    if name_elem:
+                        comment_data["author_name"] = self._extract_text_safe(name_elem)
+
+                    # Extract author profile URL
+                    profile_link = self._find_element_in_parent(
+                        comment_elem,
+                        By.CSS_SELECTOR,
+                        "a.comments-comment-meta__description-container",
+                    )
+                    if profile_link:
+                        profile_url = self._extract_attribute_safe(profile_link, "href")
+                        if profile_url:
+                            comment_data["author_profile_url"] = profile_url.split("?")[0]
+
+                    # Extract comment text
+                    text_selectors = [
+                        ".comments-comment-item__main-content",
+                        ".update-components-text",
+                        ".comments-comment-item-content",
+                    ]
+
+                    for selector in text_selectors:
+                        text_elem = self._find_element_in_parent(
+                            comment_elem, By.CSS_SELECTOR, selector
+                        )
+                        if text_elem:
+                            comment_text = self._extract_text_safe(text_elem)
+                            if comment_text:
+                                comment_data["comment_text"] = comment_text
+                                break
+
+                    # Extract comment time
+                    time_elem = self._find_element_in_parent(
+                        comment_elem, By.CSS_SELECTOR, "time.comments-comment-meta__data"
+                    )
+                    if time_elem:
+                        comment_data["comment_time"] = self._extract_text_safe(time_elem)
+
+                    # Extract reactions count
+                    reactions_button = self._find_element_in_parent(
+                        comment_elem,
+                        By.CSS_SELECTOR,
+                        "button.comments-comment-social-bar__reactions-count--cr",
+                    )
+                    if reactions_button:
+                        aria_label = self._extract_attribute_safe(reactions_button, "aria-label")
+                        if aria_label:
+                            # Extract number from aria-label like "5 Reactions on Vipin Gautam's comment"
+                            import re
+
+                            numbers = re.findall(r"^\d+", aria_label)
+                            if numbers:
+                                comment_data["reactions_count"] = int(numbers[0])
+
+                    # Only add if we got meaningful data
+                    if comment_data["author_name"] != "N/A":
+                        comments.append(comment_data)
+
+                except Exception as e:
+                    self.log_action("DEBUG", f"Could not extract comment: {e!s}")
+                    continue
+
+        except Exception as e:
+            self.log_action("WARNING", f"Error extracting post comments: {e!s}")
+
+        return comments
