@@ -4,8 +4,8 @@ from selenium.common.exceptions import NoSuchElementException, TimeoutException
 from selenium.webdriver.common.by import By
 from selenium.webdriver.support import expected_conditions as EC
 
-from linkedin_spider.utils.human_behavior import HumanBehavior
 from linkedin_spider.core.driver import DriverManager
+from linkedin_spider.utils.human_behavior import HumanBehavior
 
 
 class AuthManager:
@@ -79,7 +79,11 @@ class AuthManager:
             self.human_behavior.delay(1, 2)
             current_url = self.driver.current_url.lower()
 
-            return "login" not in current_url and "signin" not in current_url and self._quick_feed_check()
+            return (
+                "login" not in current_url
+                and "signin" not in current_url
+                and self._quick_feed_check()
+            )
         except Exception:
             return False
 
@@ -93,7 +97,7 @@ class AuthManager:
                 "messaging",
                 "notifications",
                 "start a post",
-                "global navigation"
+                "global navigation",
             ]
             return any(indicator in page_source for indicator in auth_indicators)
         except Exception:
@@ -165,7 +169,6 @@ class AuthManager:
 
         except Exception:
             return False
-
 
     def _is_challenge_present(self) -> bool:
         """Check if security challenge is present."""
@@ -254,16 +257,25 @@ class AuthManager:
         page_source = self.driver.page_source.lower()
 
         challenge_indicators = [
-            "challenge", "verification", "captcha", "security-challenge",
-            "checkpoint", "two-step", "verify your identity"
+            "challenge",
+            "verification",
+            "captcha",
+            "security-challenge",
+            "checkpoint",
+            "two-step",
+            "verify your identity",
         ]
 
         if any(indicator in page_source for indicator in challenge_indicators):
             return False
 
         auth_indicators = [
-            "global-nav__me", "messaging", "notifications",
-            "start a post", "global navigation", "feed"
+            "global-nav__me",
+            "messaging",
+            "notifications",
+            "start a post",
+            "global navigation",
+            "feed",
         ]
 
         return any(indicator in page_source for indicator in auth_indicators)

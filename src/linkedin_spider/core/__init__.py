@@ -6,8 +6,8 @@ from linkedin_spider.core.driver import DriverManager
 from linkedin_spider.core.scraper import LinkedinSpider
 
 __all__ = [
-    "LinkedinSpider",
     "AuthManager",
     "DriverManager",
+    "LinkedinSpider",
     "ScraperConfig",
 ]

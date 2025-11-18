@@ -22,7 +22,7 @@ async def scrape_conversations_list_example():
             print(f"Participant: {conversation.get('participant_name', 'N/A')}")
             print(f"Last Message: {conversation.get('message_snippet', 'N/A')[:100]}...")
             print(f"Timestamp: {conversation.get('timestamp', 'N/A')}")
-            print(f"Status: {conversation.get('online_status','N/A')}")
+            print(f"Status: {conversation.get('online_status', 'N/A')}")
             print(f"IsSponsored: {conversation.get('is_sponsored', False)}")
             print("-" * 40)
 

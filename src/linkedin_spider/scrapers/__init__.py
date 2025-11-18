@@ -9,9 +9,9 @@ from linkedin_spider.scrapers.search import SearchScraper
 
 __all__ = [
     "BaseScraper",
-    "ProfileScraper",
-    "SearchScraper",
     "CompanyScraper",
     "ConnectionScraper",
     "ConversationScraper",
+    "ProfileScraper",
+    "SearchScraper",
 ]

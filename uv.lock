@@ -1,5 +1,5 @@
 version = 1
-revision = 3
+revision = 2
 requires-python = ">=3.10"
 
 [[package]]
@@ -712,6 +712,9 @@ mcp = [
 cli = [
     { name = "linkedin-spider", extra = ["cli"] },
 ]
+dev = [
+    { name = "ruff" },
+]
 mcp = [
     { name = "linkedin-spider", extra = ["mcp"] },
 ]
@@ -745,6 +748,7 @@ provides-extras = ["all", "cli", "dev", "mcp"]
 
 [package.metadata.requires-dev]
 cli = [{ name = "linkedin-spider", extras = ["cli"], editable = "." }]
+dev = [{ name = "ruff", specifier = ">=0.12.11" }]
 mcp = [{ name = "linkedin-spider", extras = ["mcp"], editable = "." }]
 
 [[package]]

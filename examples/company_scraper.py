@@ -69,7 +69,7 @@ def search_profiles_example():
             print(f"Title: {profile.get('headline', 'N/A')}")
             print(f"Location: {profile.get('location', 'N/A')}")
             print(f"Profile URL: {profile.get('profile_url', 'N/A')}")
-            print(f"Profole Photo: {profile.get('image_url',"N/A")}")
+            print(f"Profole Photo: {profile.get('image_url', 'N/A')}")
             print("-" * 40)
 
     except Exception as e:

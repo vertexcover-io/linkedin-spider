@@ -267,8 +267,8 @@ def serve(
         _initialize_scraper(email, password, cookie, headless)
         logger.info("LinkedIn scraper initialized successfully")
     except Exception as e:
-        logger.error(f"Failed to initialize scraper: {e}")
-        logger.error("Cannot start server without valid LinkedIn credentials")
+        logger.exception(f"Failed to initialize scraper: {e}")
+        logger.exception("Cannot start server without valid LinkedIn credentials")
         sys.exit(1)
 
     logger.info(
@@ -355,7 +355,7 @@ def main():
         logger.info("Server stopped by user")
         sys.exit(0)
     except Exception as e:
-        logger.error(f"Server error: {e}")
+        logger.exception(f"Server error: {e}")
         sys.exit(1)
 
 

@@ -4,6 +4,9 @@ import signal
 import sys
 from typing import Any
 
+from linkedin_spider.core.auth import AuthManager
+from linkedin_spider.core.config import ScraperConfig
+from linkedin_spider.core.driver import DriverManager
 from linkedin_spider.scrapers.company import CompanyScraper
 from linkedin_spider.scrapers.connections import ConnectionScraper
 from linkedin_spider.scrapers.conversations import ConversationScraper
@@ -11,9 +14,6 @@ from linkedin_spider.scrapers.profile import ProfileScraper
 from linkedin_spider.scrapers.search import SearchScraper
 from linkedin_spider.utils.human_behavior import HumanBehavior
 from linkedin_spider.utils.tracking import TrackingHandler
-from linkedin_spider.core.auth import AuthManager
-from linkedin_spider.core.config import ScraperConfig
-from linkedin_spider.core.driver import DriverManager
 
 
 class LinkedinSpider:

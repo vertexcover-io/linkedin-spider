@@ -56,11 +56,7 @@ class PatternDetector:
             if re.search(pattern, text):
                 return False
 
-        for pattern in self.degree_patterns:
-            if re.search(pattern, text):
-                return True
-
-        return False
+        return any(re.search(pattern, text) for pattern in self.degree_patterns)
 
     def is_time_duration(self, text: str) -> bool:
         if not text:
@@ -73,8 +69,4 @@ class PatternDetector:
             r"(?i)\b(present|current)\b",
         ]
 
-        for pattern in duration_patterns:
-            if re.search(pattern, text):
-                return True
-
-        return False
+        return any(re.search(pattern, text) for pattern in duration_patterns)

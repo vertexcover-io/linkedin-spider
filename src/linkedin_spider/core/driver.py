@@ -1,3 +1,4 @@
+import contextlib
 import json
 import os
 import platform
@@ -215,12 +216,10 @@ class DriverManager:
         if not self.config.stealth_mode or not self.driver:
             return
 
-        try:
+        with contextlib.suppress(Exception):
             self.driver.execute_script(
                 "Object.defineProperty(navigator, 'webdriver', {get: () => undefined})"
             )
-        except Exception:
-            pass
 
         if platform.system() == "Darwin":
             try:
@@ -249,12 +248,10 @@ class DriverManager:
             except Exception:
                 pass
 
-        try:
+        with contextlib.suppress(Exception):
             self.driver.execute_cdp_cmd(
                 "Page.addScriptToEvaluateOnNewDocument", {"source": self.config.stealth_script}
             )
-        except Exception:
-            pass
 
     def _get_chrome_version(self) -> str | None:
         """Get installed Chrome version."""
