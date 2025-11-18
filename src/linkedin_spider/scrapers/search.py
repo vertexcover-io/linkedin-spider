@@ -435,6 +435,7 @@ class SearchScraper(BaseScraper):
             - post_time
             - post_text
             - hashtags
+            - links (list of URLs found in post)
             - post_url
             - media_urls (list of image/video URLs)
             - likes_count
@@ -450,6 +451,7 @@ class SearchScraper(BaseScraper):
             "post_time": "N/A",
             "post_text": "N/A",
             "hashtags": [],
+            "links": [],
             "post_url": "N/A",
             "media_urls": [],
             "likes_count": 0,
@@ -663,10 +665,11 @@ class SearchScraper(BaseScraper):
             return relative_time
 
     def _extract_post_content(self, container: WebElement) -> dict[str, Any]:
-        """Extract post text, hashtags, and posting time."""
+        """Extract post text, hashtags, links, and posting time."""
         content_info = {
             "post_text": "N/A",
             "hashtags": [],
+            "links": [],
             "post_time": "N/A",
         }
 
@@ -679,12 +682,14 @@ class SearchScraper(BaseScraper):
                 "div.update-components-update-v2__commentary",
             ]
 
+            post_content_elem = None
             for selector in text_selectors:
                 text_elem = self._find_element_in_parent(container, By.CSS_SELECTOR, selector)
                 if text_elem:
                     post_text = self._extract_text_safe(text_elem)
                     if post_text and post_text != "…more":
                         content_info["post_text"] = post_text
+                        post_content_elem = text_elem
                         break
 
             # Extract hashtags from the text element
@@ -699,6 +704,24 @@ class SearchScraper(BaseScraper):
 
             if hashtags:
                 content_info["hashtags"] = hashtags
+
+            # Extract links from the post content
+            if post_content_elem:
+                links = []
+                link_elements = post_content_elem.find_elements(By.TAG_NAME, "a")
+                for link_elem in link_elements:
+                    href = self._extract_attribute_safe(link_elem, "href")
+                    # Skip hashtag links (already extracted separately) and filter valid URLs
+                    # Keep LinkedIn redirect URLs and regular HTTP(S) links
+                    if (
+                        href
+                        and "/search/results/all/?keywords=%23" not in href
+                        and ("linkedin.com/redir/" in href or href.startswith("http"))
+                    ):
+                        links.append(href)
+
+                if links:
+                    content_info["links"] = links
 
             # Extract post time
             time_selectors = [

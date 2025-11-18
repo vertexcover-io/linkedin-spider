@@ -144,6 +144,7 @@ class LinkedinSpider:
             - post_time: ISO 8601 UTC timestamp of when the post was made
             - post_text: The text content of the post
             - hashtags: List of hashtags used in the post
+            - links: List of URLs found in the post content
             - post_url: Direct URL to the post
             - media_urls: List of image/video URLs in the post
             - likes_count: Number of reactions/likes
