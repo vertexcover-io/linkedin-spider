@@ -75,8 +75,14 @@ def main():
             if post["post_url"] != "N/A":
                 print(f"\nPost URL: {post['post_url']}")
 
-            if post["image_url"] != "N/A":
-                print("Has image: Yes")
+            if post["media_urls"]:
+                print(f"\nMedia ({len(post['media_urls'])} items):")
+                for idx, media_url in enumerate(post["media_urls"], 1):
+                    print(
+                        f"  {idx}. {media_url[:80]}..."
+                        if len(media_url) > 80
+                        else f"  {idx}. {media_url}"
+                    )
 
             print("\n")
 

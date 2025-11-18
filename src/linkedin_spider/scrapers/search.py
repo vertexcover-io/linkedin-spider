@@ -436,7 +436,7 @@ class SearchScraper(BaseScraper):
             - post_text
             - hashtags
             - post_url
-            - image_url
+            - media_urls (list of image/video URLs)
             - likes_count
             - comments_count
             - reposts_count
@@ -450,7 +450,7 @@ class SearchScraper(BaseScraper):
             "post_text": "N/A",
             "hashtags": [],
             "post_url": "N/A",
-            "image_url": "N/A",
+            "media_urls": [],
             "likes_count": 0,
             "comments_count": 0,
             "reposts_count": 0,
@@ -474,10 +474,10 @@ class SearchScraper(BaseScraper):
             if post_url:
                 post_data["post_url"] = post_url
 
-            # Extract image URL if present
-            image_url = self._extract_post_image(container)
-            if image_url:
-                post_data["image_url"] = image_url
+            # Extract media URLs (images and videos) if present
+            media_urls = self._extract_post_media(container)
+            if media_urls:
+                post_data["media_urls"] = media_urls
 
         except Exception as e:
             self.log_action("WARNING", f"Error extracting post data: {e!s}")
@@ -823,25 +823,78 @@ class SearchScraper(BaseScraper):
 
         return None
 
-    def _extract_post_image(self, container: WebElement) -> str | None:
-        """Extract image URL from post if present."""
+    def _extract_post_media(self, container: WebElement) -> list[str]:
+        """Extract all media URLs (images and videos) from post."""
+        media_urls = []
+
         try:
-            # Look for post images
+            # Extract all images
             image_selectors = [
                 ".update-components-image img",
                 "img.update-components-image__image",
                 "img[alt*='image']",
                 ".feed-shared-image img",
+                ".feed-shared-image__image",
             ]
 
             for selector in image_selectors:
-                img_elem = self._find_element_in_parent(container, By.CSS_SELECTOR, selector)
-                if img_elem:
-                    src = self._extract_attribute_safe(img_elem, "src")
-                    if src and src.startswith("http"):
-                        return src
+                try:
+                    img_elements = container.find_elements(By.CSS_SELECTOR, selector)
+                    for img_elem in img_elements:
+                        src = self._extract_attribute_safe(img_elem, "src")
+                        if src and src.startswith("http") and src not in media_urls:
+                            media_urls.append(src)
+                except Exception as e:
+                    self.log_action(
+                        "DEBUG", f"Could not extract images with selector {selector}: {e!s}"
+                    )
+                    continue
+
+            # Extract video URLs
+            video_selectors = [
+                "video source",
+                "video[src]",
+                ".feed-shared-video video",
+                ".update-components-video video",
+            ]
+
+            for selector in video_selectors:
+                try:
+                    video_elements = container.find_elements(By.CSS_SELECTOR, selector)
+                    for video_elem in video_elements:
+                        # Try to get src from source element or video element
+                        src = self._extract_attribute_safe(video_elem, "src")
+                        if not src:
+                            # Try to get from data attributes
+                            src = self._extract_attribute_safe(video_elem, "data-src")
+
+                        if src and src.startswith("http") and src not in media_urls:
+                            media_urls.append(src)
+                except Exception as e:
+                    self.log_action(
+                        "DEBUG", f"Could not extract videos with selector {selector}: {e!s}"
+                    )
+                    continue
+
+            # Also check for video poster images
+            video_poster_selectors = [
+                "video[poster]",
+            ]
+
+            for selector in video_poster_selectors:
+                try:
+                    video_elements = container.find_elements(By.CSS_SELECTOR, selector)
+                    for video_elem in video_elements:
+                        poster = self._extract_attribute_safe(video_elem, "poster")
+                        if poster and poster.startswith("http") and poster not in media_urls:
+                            media_urls.append(poster)
+                except Exception as e:
+                    self.log_action(
+                        "DEBUG", f"Could not extract video posters with selector {selector}: {e!s}"
+                    )
+                    continue
 
         except Exception as e:
-            self.log_action("WARNING", f"Error extracting post image: {e!s}")
+            self.log_action("WARNING", f"Error extracting post media: {e!s}")
 
-        return None
+        return media_urls

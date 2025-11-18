@@ -141,11 +141,11 @@ class LinkedinSpider:
             - author_headline: Author's headline/title
             - author_profile_url: URL to author's profile
             - connection_degree: Connection degree (1st, 2nd, 3rd+)
-            - post_time: When the post was made (e.g., "4d", "2h")
+            - post_time: ISO 8601 UTC timestamp of when the post was made
             - post_text: The text content of the post
             - hashtags: List of hashtags used in the post
             - post_url: Direct URL to the post
-            - image_url: URL of post image if present
+            - media_urls: List of image/video URLs in the post
             - likes_count: Number of reactions/likes
             - comments_count: Number of comments
             - reposts_count: Number of reposts
