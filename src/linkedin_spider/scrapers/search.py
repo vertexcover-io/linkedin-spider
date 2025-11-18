@@ -519,11 +519,34 @@ class SearchScraper(BaseScraper):
             for selector in name_link_selectors:
                 name_link = self._find_element_in_parent(actor_container, By.CSS_SELECTOR, selector)
                 if name_link:
-                    author_info["author_name"] = self._extract_text_safe(name_link)
+                    # Extract profile URL
                     profile_url = self._extract_attribute_safe(name_link, "href")
                     if profile_url and "/in/" in profile_url:
                         # Clean up URL (remove query parameters)
                         author_info["author_profile_url"] = profile_url.split("?")[0]
+
+                    # Extract name from aria-hidden span to avoid duplicates
+                    name_elem = self._find_element_in_parent(
+                        name_link, By.CSS_SELECTOR, 'span[aria-hidden="true"]'
+                    )
+                    if name_elem:
+                        name_text = self._extract_text_safe(name_elem)
+                        # Clean up any duplicates or extra whitespace
+                        name_lines = [
+                            line.strip() for line in name_text.split("\n") if line.strip()
+                        ]
+                        # Get unique lines preserving order
+                        seen = set()
+                        unique_lines = []
+                        for line in name_lines:
+                            if line not in seen and not line.startswith("•"):
+                                seen.add(line)
+                                unique_lines.append(line)
+                        if unique_lines:
+                            author_info["author_name"] = unique_lines[0]
+                    else:
+                        # Fallback to full text if aria-hidden not found
+                        author_info["author_name"] = self._extract_text_safe(name_link)
                     break
 
             # Extract author headline
@@ -538,9 +561,29 @@ class SearchScraper(BaseScraper):
                     actor_container, By.CSS_SELECTOR, selector
                 )
                 if headline_elem:
-                    headline_text = self._extract_text_safe(headline_elem)
+                    # Try to get from aria-hidden span first to avoid duplicates
+                    headline_aria = self._find_element_in_parent(
+                        headline_elem, By.CSS_SELECTOR, 'span[aria-hidden="true"]'
+                    )
+                    if headline_aria:
+                        headline_text = self._extract_text_safe(headline_aria)
+                    else:
+                        headline_text = self._extract_text_safe(headline_elem)
+
                     if headline_text:
-                        author_info["author_headline"] = headline_text
+                        # Clean up duplicates
+                        headline_lines = [
+                            line.strip() for line in headline_text.split("\n") if line.strip()
+                        ]
+                        # Get unique lines preserving order
+                        seen = set()
+                        unique_lines = []
+                        for line in headline_lines:
+                            if line not in seen:
+                                seen.add(line)
+                                unique_lines.append(line)
+                        if unique_lines:
+                            author_info["author_headline"] = unique_lines[0]
                         break
 
             # Extract connection degree (e.g., "1st", "2nd", "3rd+")
