@@ -150,7 +150,12 @@ class LinkedinSpider:
             - likes_count: Number of reactions/likes
             - comments_count: Number of comments
             - reposts_count: Number of reposts
-            - comments: List of comment dictionaries (author_name, author_profile_url, comment_text, comment_time, reactions_count)
+            - comments: List of comment dictionaries with keys:
+                - author_name: Name of comment author
+                - author_profile_url: URL to comment author's profile
+                - comment_text: Comment content
+                - comment_time: ISO 8601 UTC timestamp of when comment was posted
+                - reactions_count: Number of reactions on the comment
         """
         return self.search_scraper.search_posts(keywords, max_results, scroll_pause)
 

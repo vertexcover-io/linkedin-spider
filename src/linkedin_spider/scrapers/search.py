@@ -929,6 +929,76 @@ class SearchScraper(BaseScraper):
 
         return media_urls
 
+    def _load_more_comments(self, container: WebElement, max_comments: int) -> None:
+        """Load more comments by clicking 'Load more comments' buttons."""
+        try:
+            load_more_attempts = 0
+            max_load_attempts = (max_comments // 5) + 2  # Estimate attempts needed
+            previous_count = 0
+
+            while load_more_attempts < max_load_attempts:
+                # Count current comments
+                current_comments = container.find_elements(
+                    By.CSS_SELECTOR, "article.comments-comment-entity"
+                )
+                current_count = len(current_comments)
+
+                # If we have enough comments or no new comments loaded, stop
+                if current_count >= max_comments or (
+                    current_count == previous_count and load_more_attempts > 0
+                ):
+                    self.log_action(
+                        "DEBUG", f"Loaded {current_count} comments, stopping load more attempts"
+                    )
+                    break
+
+                previous_count = current_count
+
+                # Try to find and click "Load more comments" or similar buttons
+                load_more_button_selectors = [
+                    "button[aria-label*='Load more comments']",
+                    "button[aria-label*='Load previous']",
+                    "button.comments-comments-list__load-more-comments-button",
+                    "button.comments-replies-list__replies-button",
+                ]
+
+                button_clicked = False
+                for selector in load_more_button_selectors:
+                    try:
+                        load_buttons = container.find_elements(By.CSS_SELECTOR, selector)
+                        for load_button in load_buttons:
+                            try:
+                                # Check if button is visible and clickable
+                                if load_button.is_displayed():
+                                    load_button.click()
+                                    button_clicked = True
+                                    self.log_action("DEBUG", "Clicked load more comments button")
+                                    # Wait for new comments to load
+                                    self.human_behavior.delay(1.0, 2.0)
+                                    break
+                            except Exception as e:
+                                self.log_action("DEBUG", f"Could not click load more button: {e!s}")
+                                continue
+
+                        if button_clicked:
+                            break
+                    except Exception as e:
+                        self.log_action(
+                            "DEBUG",
+                            f"Could not find load more button with selector {selector}: {e!s}",
+                        )
+                        continue
+
+                # If no button was clicked, we're done
+                if not button_clicked:
+                    self.log_action("DEBUG", "No more 'load more comments' buttons found")
+                    break
+
+                load_more_attempts += 1
+
+        except Exception as e:
+            self.log_action("DEBUG", f"Error loading more comments: {e!s}")
+
     def _extract_post_comments(
         self, container: WebElement, max_comments: int = 10
     ) -> list[dict[str, Any]]:
@@ -943,7 +1013,7 @@ class SearchScraper(BaseScraper):
             - author_name
             - author_profile_url
             - comment_text
-            - comment_time
+            - comment_time (ISO 8601 UTC timestamp)
             - reactions_count
         """
         comments = []
@@ -951,8 +1021,8 @@ class SearchScraper(BaseScraper):
         try:
             # First, try to click on the comments button/count to expand comments section
             comments_button_selectors = [
-                "button[aria-label*='comment']",
-                "li.social-details-social-counts__comments button",
+                "button[aria-label*='comment'] span",
+                "li.social-details-social-counts__comments button span",
                 "button.comment-button",
             ]
 
@@ -988,6 +1058,9 @@ class SearchScraper(BaseScraper):
                         "DEBUG", f"Could not find comments button with selector {selector}: {e!s}"
                     )
                     continue
+
+            # Load more comments by clicking "Load more comments" buttons
+            self._load_more_comments(container, max_comments)
 
             # Find all comment entities (whether expanded or already visible)
             comment_entities = container.find_elements(
@@ -1046,7 +1119,11 @@ class SearchScraper(BaseScraper):
                         comment_elem, By.CSS_SELECTOR, "time.comments-comment-meta__data"
                     )
                     if time_elem:
-                        comment_data["comment_time"] = self._extract_text_safe(time_elem)
+                        relative_time = self._extract_text_safe(time_elem)
+                        # Convert to UTC timestamp
+                        comment_data["comment_time"] = self._parse_relative_time_to_utc(
+                            relative_time
+                        )
 
                     # Extract reactions count
                     reactions_button = self._find_element_in_parent(
