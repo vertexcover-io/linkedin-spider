@@ -123,6 +123,34 @@ class LinkedinSpider:
         """Search for LinkedIn profiles."""
         return self.search_scraper.search_profiles(query, max_results, filters)
 
+    def search_posts(
+        self, keywords: str, max_results: int = 10, scroll_pause: float = 2.0
+    ) -> list[dict[str, Any]]:
+        """
+        Search for LinkedIn posts by keywords.
+
+        Args:
+            keywords: Search keywords (e.g., "bihar elections")
+            max_results: Maximum number of posts to scrape
+            scroll_pause: Pause duration between scrolls in seconds
+
+        Returns:
+            List of dictionaries containing post data with keys:
+            - author_name: Name of the post author
+            - author_headline: Author's headline/title
+            - author_profile_url: URL to author's profile
+            - connection_degree: Connection degree (1st, 2nd, 3rd+)
+            - post_time: When the post was made (e.g., "4d", "2h")
+            - post_text: The text content of the post
+            - hashtags: List of hashtags used in the post
+            - post_url: Direct URL to the post
+            - image_url: URL of post image if present
+            - likes_count: Number of reactions/likes
+            - comments_count: Number of comments
+            - reposts_count: Number of reposts
+        """
+        return self.search_scraper.search_posts(keywords, max_results, scroll_pause)
+
     def scrape_company(self, company_url: str) -> dict[str, Any] | None:
         """Scrape a LinkedIn company page."""
         return self.company_scraper.scrape_company(company_url)
@@ -195,9 +223,10 @@ class LinkedinSpider:
         """Check if session is still alive."""
         try:
             self.driver.execute_script("return window.location.href;")
-            return True
         except Exception:
             return False
+        else:
+            return True
 
     def clear_saved_session(self) -> bool:
         """Clear saved session data."""
