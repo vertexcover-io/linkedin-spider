@@ -1,4 +1,5 @@
 import urllib.parse
+from datetime import datetime, timedelta, timezone
 from typing import Any
 
 from selenium.common.exceptions import TimeoutException
@@ -612,6 +613,48 @@ class SearchScraper(BaseScraper):
 
         return author_info
 
+    def _parse_relative_time_to_utc(self, relative_time: str) -> str:
+        """Convert relative time string (e.g., '2h', '4d') to UTC timestamp."""
+        try:
+            relative_time = relative_time.strip().lower()
+            now = datetime.now(timezone.utc)
+
+            # Parse the number and unit
+            if "mo" in relative_time:
+                # Months (e.g., "2mo")
+                months = int(relative_time.replace("mo", "").strip())
+                # Approximate: 1 month = 30 days
+                post_datetime = now - timedelta(days=months * 30)
+            elif "w" in relative_time:
+                # Weeks (e.g., "2w")
+                weeks = int(relative_time.replace("w", "").strip())
+                post_datetime = now - timedelta(weeks=weeks)
+            elif "d" in relative_time:
+                # Days (e.g., "4d")
+                days = int(relative_time.replace("d", "").strip())
+                post_datetime = now - timedelta(days=days)
+            elif "h" in relative_time:
+                # Hours (e.g., "2h")
+                hours = int(relative_time.replace("h", "").strip())
+                post_datetime = now - timedelta(hours=hours)
+            elif "m" in relative_time:
+                # Minutes (e.g., "30m")
+                minutes = int(relative_time.replace("m", "").strip())
+                post_datetime = now - timedelta(minutes=minutes)
+            elif "s" in relative_time:
+                # Seconds (e.g., "45s")
+                seconds = int(relative_time.replace("s", "").strip())
+                post_datetime = now - timedelta(seconds=seconds)
+            else:
+                # If we can't parse, return the original string
+                return relative_time
+
+            # Return ISO 8601 format timestamp
+            return post_datetime.isoformat()
+        except Exception:
+            # If parsing fails, return the original string
+            return relative_time
+
     def _extract_post_content(self, container: WebElement) -> dict[str, Any]:
         """Extract post text, hashtags, and posting time."""
         content_info = {
@@ -665,7 +708,11 @@ class SearchScraper(BaseScraper):
                         # Extract time from text like "4d •" or "2h •"
                         time_parts = time_text.split("•")
                         if time_parts:
-                            content_info["post_time"] = time_parts[0].strip()
+                            relative_time = time_parts[0].strip()
+                            # Convert to UTC timestamp
+                            content_info["post_time"] = self._parse_relative_time_to_utc(
+                                relative_time
+                            )
                             break
 
         except Exception as e:

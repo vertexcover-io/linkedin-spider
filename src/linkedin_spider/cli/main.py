@@ -201,6 +201,63 @@ def connections(
             scraper.close()
 
 
+@app.command
+def search_posts(
+    keywords: Annotated[
+        str, Parameter(name=["-k", "--keywords"], help="Search keywords for posts")
+    ],
+    max_results: Annotated[
+        int, Parameter(name=["-n", "--max-results"], help="Maximum number of posts")
+    ] = 10,
+    scroll_pause: Annotated[
+        float,
+        Parameter(name=["-s", "--scroll-pause"], help="Pause duration between scrolls (seconds)"),
+    ] = 2.0,
+    output: Annotated[
+        str | None,
+        Parameter(name=["-o", "--output"], help="Output file path (.json or .csv format)"),
+    ] = None,
+    headless: bool | None = None,
+    email: Annotated[str | None, Parameter(help="LinkedIn email for authentication")] = None,
+    password: Annotated[str | None, Parameter(help="LinkedIn password for authentication")] = None,
+    cookie: Annotated[
+        str | None, Parameter(help="LinkedIn li_at cookie for authentication")
+    ] = None,
+):
+    """Search for LinkedIn posts by keywords."""
+    try:
+        config = _create_config(headless)
+        credentials = _get_credentials(email, password, cookie)
+
+        scraper = LinkedinSpider(
+            email=credentials.get("email"),
+            password=credentials.get("password"),
+            li_at_cookie=credentials.get("cookie"),
+            config=config,
+        )
+
+        print(f"Searching for posts with keywords: '{keywords}'")
+        print(f"Maximum results: {max_results}")
+        print(f"Scroll pause: {scroll_pause}s\n")
+
+        results = scraper.search_posts(keywords, max_results, scroll_pause)
+
+        if output:
+            _save_results(results, output)
+            print(f"\nPost data saved to {output}")
+        else:
+            print(json.dumps(results, indent=2))
+
+        print(f"\nFound {len(results)} posts")
+
+    except Exception as e:
+        print(f"Error: {e!s}", file=sys.stderr)
+        sys.exit(1)
+    finally:
+        if "scraper" in locals():
+            scraper.close()
+
+
 def _create_config(headless: bool | None) -> ScraperConfig:
     """Create scraper configuration."""
     if headless is None:
@@ -214,7 +271,7 @@ def _get_credentials(email: str | None, password: str | None, cookie: str | None
     credentials = {
         "email": email or os.getenv("LINKEDIN_EMAIL"),
         "password": password or os.getenv("LINKEDIN_PASSWORD"),
-        "cookie": cookie or os.getenv("LINKEDIN_COOKIE") or os.getenv("cookie"),
+        "cookie": cookie or os.getenv("LINKEDIN_COOKIE"),
     }
 
     if not any(credentials.values()):
