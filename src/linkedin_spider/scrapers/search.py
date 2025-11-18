@@ -949,7 +949,47 @@ class SearchScraper(BaseScraper):
         comments = []
 
         try:
-            # Find all comment entities
+            # First, try to click on the comments button/count to expand comments section
+            comments_button_selectors = [
+                "button[aria-label*='comment']",
+                "li.social-details-social-counts__comments button",
+                "button.comment-button",
+            ]
+
+            for selector in comments_button_selectors:
+                try:
+                    comments_button = self._find_element_in_parent(
+                        container, By.CSS_SELECTOR, selector
+                    )
+                    if comments_button:
+                        # Check if there are any comments to expand
+                        button_text = self._extract_text_safe(comments_button)
+                        aria_label = self._extract_attribute_safe(comments_button, "aria-label")
+
+                        # Only click if there are comments (text contains numbers)
+                        import re
+
+                        if button_text or aria_label:
+                            text_to_check = button_text or aria_label
+                            numbers = re.findall(r"\d+", text_to_check)
+                            if numbers and int(numbers[0]) > 0:
+                                try:
+                                    comments_button.click()
+                                    # Wait for comments to load
+                                    self.human_behavior.delay(1.0, 2.0)
+                                    self.log_action("DEBUG", "Clicked comments button to expand")
+                                    break
+                                except Exception as e:
+                                    self.log_action(
+                                        "DEBUG", f"Could not click comments button: {e!s}"
+                                    )
+                except Exception as e:
+                    self.log_action(
+                        "DEBUG", f"Could not find comments button with selector {selector}: {e!s}"
+                    )
+                    continue
+
+            # Find all comment entities (whether expanded or already visible)
             comment_entities = container.find_elements(
                 By.CSS_SELECTOR, "article.comments-comment-entity"
             )
