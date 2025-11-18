@@ -75,7 +75,8 @@ class LinkedinSpider:
                 except (psutil.NoSuchProcess, psutil.AccessDenied, psutil.ZombieProcess):
                     continue
             time.sleep(0.2)
-        except Exception:
+        except Exception:  # noqa: S110
+            # Silently ignore cleanup errors to avoid noise during exit
             pass
 
         if signum is not None:

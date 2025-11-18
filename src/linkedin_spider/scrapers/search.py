@@ -53,7 +53,8 @@ class SearchScraper(BaseScraper):
         try:
             self.driver.execute_script(f"window.scrollBy(0, {pixels});")
             self.human_behavior.delay(0.5, 1.5)
-        except Exception:
+        except Exception:  # noqa: S110
+            # Silently ignore scroll errors as they're non-critical
             pass
 
     def search_profiles(
@@ -98,12 +99,16 @@ class SearchScraper(BaseScraper):
                     if result["name"] != "Anonymous" or result["headline"] != "N/A":
                         results.append(result)
 
-                except Exception:
+                except Exception as e:
+                    self.log_action(
+                        "WARNING", f"Failed to extract anonymous data from container: {e!s}"
+                    )
                     continue
 
-            return results
         except Exception:
             return []
+        else:
+            return results
 
     def search_and_apply_filters(
         self,
@@ -209,15 +214,16 @@ class SearchScraper(BaseScraper):
                     if (i + 1) % 3 == 0:
                         self._scroll_and_wait(300)
 
-                except Exception:
+                except Exception as e:
+                    self.log_action("WARNING", f"Failed to extract profile from container: {e!s}")
                     continue
-
-            self.log_action("SUCCESS", f"Found {len(results)} profiles for query: {query}")
-            return results
 
         except Exception as e:
             self.log_action("ERROR", f"Search failed: {e!s}")
             return []
+        else:
+            self.log_action("SUCCESS", f"Found {len(results)} profiles for query: {query}")
+            return results
 
     def get_applied_filters(self) -> Any:
         return self.filter_handler.get_applied_filters()
