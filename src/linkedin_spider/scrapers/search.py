@@ -432,8 +432,8 @@ class SearchScraper(BaseScraper):
             - author_headline
             - author_profile_url
             - connection_degree (e.g., "1st", "2nd", "3rd+")
-            - post_time
-            - post_text
+            - post_time (ISO 8601 UTC timestamp)
+            - post_text (markdown format with links)
             - hashtags
             - links (list of URLs found in post)
             - post_url
@@ -622,6 +622,76 @@ class SearchScraper(BaseScraper):
 
         return author_info
 
+    def _extract_text_as_markdown(self, element: WebElement) -> str:
+        """Extract text from element preserving links in markdown format.
+
+        Converts HTML like:
+        'Text <a href="url">link</a> more text'
+        to:
+        'Text [link](url) more text'
+        """
+        try:
+            # Get the innerHTML and parse it to preserve structure
+            inner_html = element.get_attribute("innerHTML")
+            if not inner_html:
+                return self._extract_text_safe(element)
+
+            # Use BeautifulSoup-like parsing with simple regex and string operations
+            import re
+
+            # Replace <br> and <br/> tags with newlines
+            text = re.sub(r"<br\s*/?>", "\n", inner_html, flags=re.IGNORECASE)
+
+            # Process links: <a href="url">text</a> -> [text](url)
+            # Match anchor tags and extract href and text
+            link_pattern = r'<a[^>]*href=["\']([^"\']*)["\'][^>]*>(.*?)</a>'
+
+            def replace_link(match):
+                url = match.group(1)
+                # Get inner content and strip any nested HTML tags
+                inner_content = match.group(2)
+                # Remove any HTML tags from inner content
+                link_text = re.sub(r"<[^>]+>", "", inner_content).strip()
+
+                # Skip if it's empty
+                if not link_text:
+                    return ""
+
+                # Convert relative URLs to absolute URLs
+                if url.startswith("/"):
+                    url = f"https://www.linkedin.com{url}"
+                elif not url.startswith("http"):
+                    url = f"https://www.linkedin.com/{url}"
+
+                return f"[{link_text}]({url})"
+
+            text = re.sub(link_pattern, replace_link, text, flags=re.IGNORECASE | re.DOTALL)
+
+            # Remove any remaining HTML tags
+            text = re.sub(r"<[^>]+>", "", text)
+
+            # Decode HTML entities
+            import html
+
+            text = html.unescape(text)
+
+            # Clean up extra whitespace while preserving intentional line breaks
+            lines = text.split("\n")
+            cleaned_lines = []
+            for line in lines:
+                cleaned_line = " ".join(line.split())  # Normalize spaces within line
+                if cleaned_line:  # Only keep non-empty lines
+                    cleaned_lines.append(cleaned_line)
+
+            text = "\n".join(cleaned_lines)
+
+            return text.strip()
+
+        except Exception as e:
+            self.log_action("DEBUG", f"Error extracting text as markdown: {e!s}")
+            # Fallback to plain text extraction
+            return self._extract_text_safe(element)
+
     def _parse_relative_time_to_utc(self, relative_time: str) -> str:
         """Convert relative time string (e.g., '2h', '4d') to UTC timestamp."""
         try:
@@ -686,7 +756,8 @@ class SearchScraper(BaseScraper):
             for selector in text_selectors:
                 text_elem = self._find_element_in_parent(container, By.CSS_SELECTOR, selector)
                 if text_elem:
-                    post_text = self._extract_text_safe(text_elem)
+                    # Extract text as markdown to preserve links
+                    post_text = self._extract_text_as_markdown(text_elem)
                     if post_text and post_text != "…more":
                         content_info["post_text"] = post_text
                         post_content_elem = text_elem
@@ -1012,7 +1083,7 @@ class SearchScraper(BaseScraper):
             List of comment dictionaries with keys:
             - author_name
             - author_profile_url
-            - comment_text
+            - comment_text (markdown format with links)
             - comment_time (ISO 8601 UTC timestamp)
             - reactions_count
         """
@@ -1109,7 +1180,8 @@ class SearchScraper(BaseScraper):
                             comment_elem, By.CSS_SELECTOR, selector
                         )
                         if text_elem:
-                            comment_text = self._extract_text_safe(text_elem)
+                            # Extract text as markdown to preserve links
+                            comment_text = self._extract_text_as_markdown(text_elem)
                             if comment_text:
                                 comment_data["comment_text"] = comment_text
                                 break

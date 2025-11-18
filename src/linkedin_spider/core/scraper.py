@@ -142,7 +142,7 @@ class LinkedinSpider:
             - author_profile_url: URL to author's profile
             - connection_degree: Connection degree (1st, 2nd, 3rd+)
             - post_time: ISO 8601 UTC timestamp of when the post was made
-            - post_text: The text content of the post
+            - post_text: The text content of the post in markdown format (links preserved as [text](url))
             - hashtags: List of hashtags used in the post
             - links: List of URLs found in the post content
             - post_url: Direct URL to the post
@@ -153,7 +153,7 @@ class LinkedinSpider:
             - comments: List of comment dictionaries with keys:
                 - author_name: Name of comment author
                 - author_profile_url: URL to comment author's profile
-                - comment_text: Comment content
+                - comment_text: Comment content in markdown format (links preserved as [text](url))
                 - comment_time: ISO 8601 UTC timestamp of when comment was posted
                 - reactions_count: Number of reactions on the comment
         """
