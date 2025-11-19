@@ -96,6 +96,42 @@ results = scraper.search_profiles("software engineer", max_results=10)
 ```
 
 ```python
+# Search for posts by keywords
+posts = scraper.search_posts("artificial intelligence", max_results=10, scroll_pause=2.0)
+```
+
+**Output sample:**
+
+```json
+[
+  {
+    "author_name": "John Doe",
+    "author_headline": "AI Research Scientist at OpenAI",
+    "author_profile_url": "https://linkedin.com/in/johndoe",
+    "connection_degree": "2nd",
+    "post_time": "2024-01-15T14:30:00+00:00",
+    "post_text": "Excited to share our latest research on [large language models](https://example.com/paper)...",
+    "hashtags": ["#AI", "#MachineLearning", "#Research"],
+    "links": ["https://example.com/paper"],
+    "post_url": "https://linkedin.com/feed/update/urn:li:activity:123456789",
+    "media_urls": ["https://media.licdn.com/dms/image/..."],
+    "likes_count": 1247,
+    "comments_count": 89,
+    "reposts_count": 234,
+    "comments": [
+      {
+        "author_name": "Jane Smith",
+        "author_profile_url": "https://linkedin.com/in/janesmith",
+        "comment_text": "Great insights! Looking forward to reading the full paper.",
+        "comment_time": "2024-01-15T15:45:00+00:00",
+        "reactions_count": 12
+      }
+    ]
+  }
+]
+```
+
+```python
 # Scrape individual profile
 profile = scraper.scrape_profile("https://linkedin.com/in/someone")
 ```
@@ -149,32 +185,6 @@ company = scraper.scrape_company("https://linkedin.com/company/tech-corp")
 ```
 
 ```python
-# Search for posts by keywords
-posts = scraper.search_posts("artificial intelligence", max_results=10)
-```
-
-**Output sample:**
-
-```json
-[
-  {
-    "author_name": "John Doe",
-    "author_headline": "AI Research Scientist at OpenAI",
-    "author_profile_url": "https://linkedin.com/in/johndoe",
-    "connection_degree": "2nd",
-    "post_time": "2d",
-    "post_text": "Excited to share our latest research on large language models...",
-    "hashtags": ["#AI", "#MachineLearning", "#Research"],
-    "post_url": "https://linkedin.com/feed/update/urn:li:activity:123456789",
-    "image_url": "https://media.licdn.com/dms/image/...",
-    "likes_count": 1247,
-    "comments_count": 89,
-    "reposts_count": 234
-  }
-]
-```
-
-```python
 # Don't forget to clean up
 scraper.close()
 ```
@@ -187,15 +197,35 @@ Great for quick data extraction and scripting:
 
 ```bash
 # If installed via pip
+# Search for profiles
 linkedin-spider-cli search -q "product manager" -n 10 -o results.json --email your@email.com --password yourpassword
+
+# Search for posts
+linkedin-spider-cli search-posts -k "artificial intelligence" -n 10 -s 2.0 -o posts.json --email your@email.com --password yourpassword
+
+# Scrape individual profile
 linkedin-spider-cli profile -u "https://linkedin.com/in/johndoe" -o profile.json --email your@email.com --password yourpassword
+
+# Scrape company
 linkedin-spider-cli company -u "https://linkedin.com/company/openai" -o company.json --email your@email.com --password yourpassword
+
+# Get connection requests
 linkedin-spider-cli connections -n 20 -o connections.json --email your@email.com --password yourpassword
 
 # If using development setup
+# Search for profiles
 uv run linkedin-spider-cli search -q "product manager" -n 10 -o results.json --email your@email.com --password yourpassword
+
+# Search for posts
+uv run linkedin-spider-cli search-posts -k "artificial intelligence" -n 10 -s 2.0 -o posts.json --email your@email.com --password yourpassword
+
+# Scrape individual profile
 uv run linkedin-spider-cli profile -u "https://linkedin.com/in/johndoe" -o profile.json --email your@email.com --password yourpassword
+
+# Scrape company
 uv run linkedin-spider-cli company -u "https://linkedin.com/company/openai" -o company.json --email your@email.com --password yourpassword
+
+# Get connection requests
 uv run linkedin-spider-cli connections -n 20 -o connections.json --email your@email.com --password yourpassword
 ```
 
