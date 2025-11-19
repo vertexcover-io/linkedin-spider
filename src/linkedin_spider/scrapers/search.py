@@ -435,7 +435,7 @@ class SearchScraper(BaseScraper):
             - post_time (ISO 8601 UTC timestamp)
             - post_text (markdown format with links)
             - hashtags
-            - links (list of URLs found in post)
+            - links (list of external domain URLs only - excludes internal LinkedIn links)
             - post_url
             - media_urls (list of image/video URLs)
             - likes_count
@@ -735,7 +735,11 @@ class SearchScraper(BaseScraper):
             return relative_time
 
     def _extract_post_content(self, container: WebElement) -> dict[str, Any]:
-        """Extract post text, hashtags, links, and posting time."""
+        """Extract post text, hashtags, external links, and posting time.
+
+        Note: Only external domain links are stored (LinkedIn redirect URLs and non-LinkedIn domains).
+        Internal LinkedIn links (profiles, companies, posts) are excluded.
+        """
         content_info = {
             "post_text": "N/A",
             "hashtags": [],
@@ -776,20 +780,29 @@ class SearchScraper(BaseScraper):
             if hashtags:
                 content_info["hashtags"] = hashtags
 
-            # Extract links from the post content
+            # Extract links from the post content (external domains only)
             if post_content_elem:
                 links = []
                 link_elements = post_content_elem.find_elements(By.TAG_NAME, "a")
                 for link_elem in link_elements:
                     href = self._extract_attribute_safe(link_elem, "href")
-                    # Skip hashtag links (already extracted separately) and filter valid URLs
-                    # Keep LinkedIn redirect URLs and regular HTTP(S) links
-                    if (
-                        href
-                        and "/search/results/all/?keywords=%23" not in href
-                        and ("linkedin.com/redir/" in href or href.startswith("http"))
-                    ):
+
+                    # Skip hashtag links (already extracted separately)
+                    if not href or "/search/results/all/?keywords=%23" in href:
+                        continue
+
+                    # Keep LinkedIn redirect URLs (these point to external sites)
+                    if "linkedin.com/redir/" in href:
                         links.append(href)
+                        continue
+
+                    # For other links, only keep external domains (not linkedin.com)
+                    if href.startswith("http"):
+                        # Parse the URL to check domain
+                        parsed = urllib.parse.urlparse(href)
+                        # Skip if it's a LinkedIn domain link
+                        if "linkedin.com" not in parsed.netloc:
+                            links.append(href)
 
                 if links:
                     content_info["links"] = links
