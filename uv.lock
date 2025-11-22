@@ -675,6 +675,7 @@ name = "linkedin-spider"
 source = { editable = "." }
 dependencies = [
     { name = "psutil" },
+    { name = "pyperclip" },
     { name = "python-dotenv" },
     { name = "requests" },
     { name = "selenium" },
@@ -733,6 +734,7 @@ requires-dist = [
     { name = "pre-commit", marker = "extra == 'all'", specifier = ">=2.20.0" },
     { name = "pre-commit", marker = "extra == 'dev'", specifier = ">=2.20.0" },
     { name = "psutil", specifier = ">=5.9.0" },
+    { name = "pyperclip", specifier = ">=1.9.0" },
     { name = "pytest", marker = "extra == 'all'", specifier = ">=7.2.0" },
     { name = "pytest", marker = "extra == 'dev'", specifier = ">=7.2.0" },
     { name = "pytest-asyncio", marker = "extra == 'all'", specifier = ">=0.21.0" },

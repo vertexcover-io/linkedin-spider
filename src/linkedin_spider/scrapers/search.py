@@ -1,7 +1,9 @@
+import contextlib
 import urllib.parse
 from datetime import datetime, timedelta, timezone
 from typing import Any
 
+import pyperclip
 from selenium.common.exceptions import TimeoutException
 from selenium.webdriver.common.by import By
 from selenium.webdriver.remote.webelement import WebElement
@@ -941,10 +943,119 @@ class SearchScraper(BaseScraper):
 
         return metrics
 
+    def _extract_post_link_via_clipboard(self, container: WebElement) -> str | None:
+        """Extract post link by clicking three dots menu and copying link to clipboard."""
+        try:
+            # Find the three dots button (control menu button)
+            control_menu_selectors = [
+                "button[aria-label*='Control menu']",
+                "button.feed-shared-control-menu__trigger",
+                "button[aria-label*='More actions']",
+                ".feed-shared-control-menu__trigger",
+            ]
+
+            control_menu_button = None
+            for selector in control_menu_selectors:
+                control_menu_button = self._find_element_in_parent(
+                    container, By.CSS_SELECTOR, selector
+                )
+                if control_menu_button:
+                    break
+
+            if not control_menu_button:
+                self.log_action("DEBUG", "Could not find control menu button")
+                return None
+
+            # Scroll the button into view if needed
+            self.driver.execute_script(
+                "arguments[0].scrollIntoView({block: 'center'});", control_menu_button
+            )
+            self.human_behavior.delay(0.3, 0.5)
+
+            # Click the three dots button to open the dropdown
+            try:
+                control_menu_button.click()
+                self.human_behavior.delay(0.5, 1.0)
+            except Exception as e:
+                self.log_action("DEBUG", f"Could not click control menu button: {e!s}")
+                return None
+
+            # Wait a bit for the dropdown to appear
+            self.human_behavior.delay(0.3, 0.5)
+
+            # Find the "Copy link to post" option in the dropdown
+            # The dropdown might be rendered outside the container, so search in the entire document
+            copy_link_button = None
+            with contextlib.suppress(Exception):
+                # First try to find by class name in the visible dropdown
+                copy_link_button = self.driver.find_element(
+                    By.CSS_SELECTOR, "li.option-share-via div[role='button']"
+                )
+
+            # If not found by class, search by text content
+            if not copy_link_button:
+                with contextlib.suppress(Exception):
+                    # Find all visible dropdown menus
+                    all_menu_items = self.driver.find_elements(
+                        By.CSS_SELECTOR, "li.feed-shared-control-menu__item"
+                    )
+                    for item in all_menu_items:
+                        with contextlib.suppress(Exception):
+                            headline = item.find_element(
+                                By.CSS_SELECTOR, "h5.feed-shared-control-menu__headline"
+                            )
+                            if headline and "Copy link to post" in headline.text:
+                                copy_link_button = item.find_element(
+                                    By.CSS_SELECTOR, "div[role='button']"
+                                )
+                                break
+
+            if not copy_link_button:
+                # Try to close the dropdown and return
+                with contextlib.suppress(Exception):
+                    # Click outside to close
+                    self.driver.execute_script("document.body.click();")
+                self.log_action("DEBUG", "Could not find 'Copy link to post' option")
+                return None
+
+            # Click "Copy link to post"
+            try:
+                copy_link_button.click()
+                self.human_behavior.delay(0.5, 1.0)
+            except Exception as e:
+                self.log_action("DEBUG", f"Could not click 'Copy link to post': {e!s}")
+                # Try to close the dropdown
+                with contextlib.suppress(Exception):
+                    self.driver.execute_script("document.body.click();")
+                return None
+
+            # Read from clipboard
+            try:
+                clipboard_content = pyperclip.paste()
+                if clipboard_content and (
+                    "linkedin.com/feed/update/" in clipboard_content
+                    or "linkedin.com/posts/" in clipboard_content
+                ):
+                    # Clean up the URL (remove query parameters)
+                    post_url = clipboard_content.split("?")[0]
+                    return post_url
+                else:
+                    self.log_action(
+                        "DEBUG",
+                        f"Clipboard content does not appear to be a LinkedIn post URL: {clipboard_content[:50]}",
+                    )
+            except Exception as e:
+                self.log_action("DEBUG", f"Could not read from clipboard: {e!s}")
+
+        except Exception as e:
+            self.log_action("WARNING", f"Error extracting post link via clipboard: {e!s}")
+
+        return None
+
     def _extract_post_url(self, container: WebElement) -> str | None:
         """Extract the URL to the post."""
         try:
-            # Look for post link in various places
+            # First, try to find post link in various places
             link_selectors = [
                 "a[href*='/feed/update/']",
                 "a[href*='/posts/']",
@@ -957,6 +1068,13 @@ class SearchScraper(BaseScraper):
                     href = self._extract_attribute_safe(link_elem, "href")
                     if href and ("/feed/update/" in href or "/posts/" in href):
                         return href.split("?")[0]  # Remove query parameters
+
+            # If direct link extraction fails, try clipboard method
+            self.log_action("DEBUG", "Direct link extraction failed, trying clipboard method")
+            clipboard_url = self._extract_post_link_via_clipboard(container)
+            if clipboard_url:
+                self.log_action("DEBUG", f"Extracted post from URL: {clipboard_url}")
+                return clipboard_url
 
         except Exception as e:
             self.log_action("WARNING", f"Error extracting post URL: {e!s}")
