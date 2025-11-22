@@ -165,13 +165,21 @@ async def scrape_company(company_url: str) -> str:
 
 
 @mcp_app.tool()
-async def search_posts(keywords: str, max_results: int = 10, scroll_pause: float = 2.0) -> str:
+async def search_posts(
+    keywords: str,
+    max_results: int = 10,
+    scroll_pause: float = 2.0,
+    max_comments: int = 10,
+    date_posted: str | None = None,
+) -> str:
     """Search for LinkedIn posts by keywords.
 
     Args:
         keywords: Search keywords for posts
         max_results: Maximum number of posts to retrieve (default: 10)
         scroll_pause: Pause duration between scrolls in seconds (default: 2.0)
+        max_comments: Maximum comments per post, 0 to skip comments (default: 10)
+        date_posted: Filter by date posted: "past-24h", "past-week", "past-month", or None
 
     Returns:
         JSON string containing post data including author info, content, and engagement metrics
@@ -181,7 +189,9 @@ async def search_posts(keywords: str, max_results: int = 10, scroll_pause: float
 
     try:
         scraper = get_scraper()
-        results = scraper.search_posts(keywords, max_results, scroll_pause)
+        results = scraper.search_posts(
+            keywords, max_results, scroll_pause, max_comments, date_posted
+        )
 
         if results:
             return f"posts:\n{json.dumps(results, indent=2, ensure_ascii=False)}"

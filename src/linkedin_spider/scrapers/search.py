@@ -233,7 +233,12 @@ class SearchScraper(BaseScraper):
         return self.filter_handler.reset_filters()
 
     def search_posts(
-        self, keywords: str, max_results: int = 10, scroll_pause: float = 2.0
+        self,
+        keywords: str,
+        max_results: int = 10,
+        scroll_pause: float = 2.0,
+        max_comments: int = 10,
+        date_posted: str | None = None,
     ) -> list[dict[str, Any]]:
         """
         Search for LinkedIn posts by keywords.
@@ -242,6 +247,8 @@ class SearchScraper(BaseScraper):
             keywords: Search keywords
             max_results: Maximum number of posts to scrape
             scroll_pause: Pause duration between scrolls (seconds)
+            max_comments: Maximum number of comments to fetch per post (0 to skip comments)
+            date_posted: Filter by date posted. Valid values: "past-24h", "past-week", "past-month", or None
 
         Returns:
             List of post data dictionaries
@@ -253,11 +260,25 @@ class SearchScraper(BaseScraper):
                 f"https://www.linkedin.com/search/results/content/?keywords={encoded_keywords}"
             )
 
+            # Add date filter to URL if provided
+            if date_posted:
+                valid_filters = ["past-24h", "past-week", "past-month"]
+                if date_posted in valid_filters:
+                    search_url += f'&datePosted="{date_posted}"'
+                    self.log_action("INFO", f"Applying date filter: {date_posted}")
+                else:
+                    self.log_action(
+                        "WARNING",
+                        f"Invalid date_posted value: {date_posted}. Must be one of {valid_filters}",
+                    )
+
             self.log_action("INFO", f"Searching for posts with keywords: {keywords}")
 
             if not self.navigate_to_url(search_url):
                 self.log_action("ERROR", f"Failed to navigate to post search: {keywords}")
                 return []
+
+            self.log_action("INFO", f"Navigated to post search URL: {search_url}")
 
             # Wait for initial page load
             self.human_behavior.delay(2.0, 4.0)
@@ -284,7 +305,7 @@ class SearchScraper(BaseScraper):
                         continue
 
                     # Extract post data
-                    post_data = self._extract_post_data(container)
+                    post_data = self._extract_post_data(container, max_comments=max_comments)
 
                     # Only add if we got meaningful data
                     if post_data and post_data.get("author_name") != "N/A":
@@ -422,9 +443,13 @@ class SearchScraper(BaseScraper):
         else:
             return None
 
-    def _extract_post_data(self, container: WebElement) -> dict[str, Any]:
+    def _extract_post_data(self, container: WebElement, max_comments: int = 10) -> dict[str, Any]:
         """
         Extract comprehensive data from a post container.
+
+        Args:
+            container: Post container WebElement
+            max_comments: Maximum number of comments to fetch (0 to skip comments)
 
         Returns:
             Dictionary containing post data with keys:
@@ -441,7 +466,7 @@ class SearchScraper(BaseScraper):
             - likes_count
             - comments_count
             - reposts_count
-            - comments (list of comment dictionaries)
+            - comments (list of comment dictionaries, empty if max_comments=0)
         """
         post_data = {
             "author_name": "N/A",
@@ -483,10 +508,11 @@ class SearchScraper(BaseScraper):
             if media_urls:
                 post_data["media_urls"] = media_urls
 
-            # Extract comments if present
-            comments = self._extract_post_comments(container)
-            if comments:
-                post_data["comments"] = comments
+            # Extract comments if max_comments > 0
+            if max_comments > 0:
+                comments = self._extract_post_comments(container, max_comments)
+                if comments:
+                    post_data["comments"] = comments
 
         except Exception as e:
             self.log_action("WARNING", f"Error extracting post data: {e!s}")
@@ -1117,12 +1143,12 @@ class SearchScraper(BaseScraper):
             if post_data.get("post_url") == "N/A":
                 post_data["post_url"] = url.split("?")[0]
 
-            self.log_action("SUCCESS", f"Extracted post from URL: {url}")
-            return post_data
-
         except Exception as e:
             self.log_action("ERROR", f"Failed to open link: {e!s}")
             return None
+        else:
+            self.log_action("SUCCESS", f"Extracted post from URL: {url}")
+            return post_data
 
     def _extract_post_comments(
         self, container: WebElement, max_comments: int = 10

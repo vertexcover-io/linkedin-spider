@@ -125,7 +125,12 @@ class LinkedinSpider:
         return self.search_scraper.search_profiles(query, max_results, filters)
 
     def search_posts(
-        self, keywords: str, max_results: int = 10, scroll_pause: float = 2.0
+        self,
+        keywords: str,
+        max_results: int = 10,
+        scroll_pause: float = 2.0,
+        max_comments: int = 10,
+        date_posted: str | None = None,
     ) -> list[dict[str, Any]]:
         """
         Search for LinkedIn posts by keywords.
@@ -134,6 +139,8 @@ class LinkedinSpider:
             keywords: Search keywords (e.g., "bihar elections")
             max_results: Maximum number of posts to scrape
             scroll_pause: Pause duration between scrolls in seconds
+            max_comments: Maximum number of comments to fetch per post (0 to skip comments)
+            date_posted: Filter by date posted ("past-24h", "past-week", "past-month", or None)
 
         Returns:
             List of dictionaries containing post data with keys:
@@ -157,7 +164,9 @@ class LinkedinSpider:
                 - comment_time: ISO 8601 UTC timestamp of when comment was posted
                 - reactions_count: Number of reactions on the comment
         """
-        return self.search_scraper.search_posts(keywords, max_results, scroll_pause)
+        return self.search_scraper.search_posts(
+            keywords, max_results, scroll_pause, max_comments, date_posted
+        )
 
     def open_link(self, url: str) -> dict[str, Any] | None:
         """

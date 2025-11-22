@@ -213,6 +213,19 @@ def search_posts(
         float,
         Parameter(name=["-s", "--scroll-pause"], help="Pause duration between scrolls (seconds)"),
     ] = 2.0,
+    max_comments: Annotated[
+        int,
+        Parameter(
+            name=["-c", "--max-comments"], help="Maximum comments per post (0 to skip comments)"
+        ),
+    ] = 10,
+    date_posted: Annotated[
+        str | None,
+        Parameter(
+            name=["-d", "--date-posted"],
+            help="Filter by date posted (past-24h, past-week, past-month)",
+        ),
+    ] = None,
     output: Annotated[
         str | None,
         Parameter(name=["-o", "--output"], help="Output file path (.json or .csv format)"),
@@ -238,9 +251,15 @@ def search_posts(
 
         print(f"Searching for posts with keywords: '{keywords}'")
         print(f"Maximum results: {max_results}")
-        print(f"Scroll pause: {scroll_pause}s\n")
+        print(f"Scroll pause: {scroll_pause}s")
+        print(f"Max comments per post: {max_comments}")
+        if date_posted:
+            print(f"Date filter: {date_posted}")
+        print()
 
-        results = scraper.search_posts(keywords, max_results, scroll_pause)
+        results = scraper.search_posts(
+            keywords, max_results, scroll_pause, max_comments, date_posted
+        )
 
         if output:
             _save_results(results, output)
