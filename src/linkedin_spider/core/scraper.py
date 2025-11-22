@@ -159,6 +159,18 @@ class LinkedinSpider:
         """
         return self.search_scraper.search_posts(keywords, max_results, scroll_pause)
 
+    def open_link(self, url: str) -> dict[str, Any] | None:
+        """
+        Open a LinkedIn post URL and extract its content.
+
+        Args:
+            url: LinkedIn post URL (e.g., https://linkedin.com/feed/update/urn:li:activity:...)
+
+        Returns:
+            Dictionary containing post data (same structure as search_posts), or None if failed
+        """
+        return self.search_scraper.open_link(url)
+
     def scrape_company(self, company_url: str) -> dict[str, Any] | None:
         """Scrape a LinkedIn company page."""
         return self.company_scraper.scrape_company(company_url)

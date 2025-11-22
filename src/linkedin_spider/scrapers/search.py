@@ -1083,6 +1083,47 @@ class SearchScraper(BaseScraper):
         except Exception as e:
             self.log_action("DEBUG", f"Error loading more comments: {e!s}")
 
+    def open_link(self, url: str) -> dict[str, Any] | None:
+        """
+        Open a LinkedIn post URL and extract its content.
+
+        Args:
+            url: LinkedIn post URL (e.g., https://linkedin.com/feed/update/urn:li:activity:...)
+
+        Returns:
+            Dictionary containing post data (same structure as search_posts), or None if failed
+        """
+        try:
+            self.log_action("INFO", f"Opening LinkedIn URL: {url}")
+
+            if not self.navigate_to_url(url):
+                self.log_action("ERROR", f"Failed to navigate to URL: {url}")
+                return None
+
+            # Wait for page load
+            self.human_behavior.delay(2.0, 4.0)
+
+            # Find the first post container
+            post_containers = self._find_post_containers()
+
+            if not post_containers:
+                self.log_action("WARNING", "No post container found on page")
+                return None
+
+            # Extract data from the first post
+            post_data = self._extract_post_data(post_containers[0])
+
+            # Set post_url if not already set
+            if post_data.get("post_url") == "N/A":
+                post_data["post_url"] = url.split("?")[0]
+
+            self.log_action("SUCCESS", f"Extracted post from URL: {url}")
+            return post_data
+
+        except Exception as e:
+            self.log_action("ERROR", f"Failed to open link: {e!s}")
+            return None
+
     def _extract_post_comments(
         self, container: WebElement, max_comments: int = 10
     ) -> list[dict[str, Any]]:
