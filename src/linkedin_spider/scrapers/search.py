@@ -1227,7 +1227,7 @@ class SearchScraper(BaseScraper):
         except Exception as e:
             self.log_action("DEBUG", f"Error loading more comments: {e!s}")
 
-    def open_link(self, url: str) -> dict[str, Any] | None:
+    def open_link(self, url: str, max_comments: int = 10) -> dict[str, Any] | None:
         """
         Open a LinkedIn post URL and extract its content.
 
@@ -1255,7 +1255,7 @@ class SearchScraper(BaseScraper):
                 return None
 
             # Extract data from the first post
-            post_data = self._extract_post_data(post_containers[0])
+            post_data = self._extract_post_data(post_containers[0], max_comments=max_comments)
 
             # Set post_url if not already set
             if post_data.get("post_url") == "N/A":

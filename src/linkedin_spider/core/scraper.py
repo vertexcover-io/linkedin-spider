@@ -168,7 +168,7 @@ class LinkedinSpider:
             keywords, max_results, scroll_pause, max_comments, date_posted
         )
 
-    def open_link(self, url: str) -> dict[str, Any] | None:
+    def open_link(self, url: str, max_comments: int = 10) -> dict[str, Any] | None:
         """
         Open a LinkedIn post URL and extract its content.
 
@@ -178,7 +178,7 @@ class LinkedinSpider:
         Returns:
             Dictionary containing post data (same structure as search_posts), or None if failed
         """
-        return self.search_scraper.open_link(url)
+        return self.search_scraper.open_link(url, max_comments=max_comments)
 
     def scrape_company(self, company_url: str) -> dict[str, Any] | None:
         """Scrape a LinkedIn company page."""
