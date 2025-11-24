@@ -32,6 +32,7 @@ dependencies = [
     "python-dotenv>=1.0.0",
     "psutil>=5.9.0",
     "twine>=6.2.0",
+    "pyperclip>=1.9.0",
 ]
 
 
@@ -118,6 +119,8 @@ ignore_missing_imports = true
 target-version = "py310"
 line-length = 100
 fix = true
+
+[tool.ruff.lint]
 select = [
     # Pyflakes
     "F",
@@ -149,10 +152,10 @@ ignore = [
     "B008",  # Do not perform function calls in argument defaults
 ]
 
-[tool.ruff.per-file-ignores]
+[tool.ruff.lint.per-file-ignores]
 "tests/**/*" = ["S101", "S106", "S108", "S311", "A001", "A002", "A003"]
 
-[tool.ruff.isort]
+[tool.ruff.lint.isort]
 known-first-party = ["linkedin_spider", "cli", "mcp"]
 
 [tool.black]
@@ -216,6 +219,9 @@ linkedin-spider = { workspace = true }
 [dependency-groups]
 cli = [
     "linkedin-spider[cli]",
+]
+dev = [
+    "ruff>=0.12.11",
 ]
 mcp = [
     "linkedin-spider[mcp]",

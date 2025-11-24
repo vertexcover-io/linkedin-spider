@@ -1,5 +1,5 @@
 version = 1
-revision = 3
+revision = 2
 requires-python = ">=3.10"
 
 [[package]]
@@ -675,6 +675,7 @@ name = "linkedin-spider"
 source = { editable = "." }
 dependencies = [
     { name = "psutil" },
+    { name = "pyperclip" },
     { name = "python-dotenv" },
     { name = "requests" },
     { name = "selenium" },
@@ -712,6 +713,9 @@ mcp = [
 cli = [
     { name = "linkedin-spider", extra = ["cli"] },
 ]
+dev = [
+    { name = "ruff" },
+]
 mcp = [
     { name = "linkedin-spider", extra = ["mcp"] },
 ]
@@ -730,6 +734,7 @@ requires-dist = [
     { name = "pre-commit", marker = "extra == 'all'", specifier = ">=2.20.0" },
     { name = "pre-commit", marker = "extra == 'dev'", specifier = ">=2.20.0" },
     { name = "psutil", specifier = ">=5.9.0" },
+    { name = "pyperclip", specifier = ">=1.9.0" },
     { name = "pytest", marker = "extra == 'all'", specifier = ">=7.2.0" },
     { name = "pytest", marker = "extra == 'dev'", specifier = ">=7.2.0" },
     { name = "pytest-asyncio", marker = "extra == 'all'", specifier = ">=0.21.0" },
@@ -745,6 +750,7 @@ provides-extras = ["all", "cli", "dev", "mcp"]
 
 [package.metadata.requires-dev]
 cli = [{ name = "linkedin-spider", extras = ["cli"], editable = "." }]
+dev = [{ name = "ruff", specifier = ">=0.12.11" }]
 mcp = [{ name = "linkedin-spider", extras = ["mcp"], editable = "." }]
 
 [[package]]

@@ -4,8 +4,8 @@ from typing import Any
 from selenium.common.exceptions import NoSuchElementException
 from selenium.webdriver.common.by import By
 
-from linkedin_spider.utils.pattern_detector import PatternDetector
 from linkedin_spider.scrapers.base import BaseScraper
+from linkedin_spider.utils.pattern_detector import PatternDetector
 
 
 class CompanyScraper(BaseScraper):
@@ -218,10 +218,8 @@ class CompanyScraper(BaseScraper):
                     for element in elements:
                         text = element.text.strip()
                         if text and ("followers" in text.lower() or "M" in text or "K" in text):
-                            if (
-                                "followers" in text.lower()
-                                or any(char in text for char in ["M", "K"])
-                                and len(text) < 10
+                            if "followers" in text.lower() or (
+                                any(char in text for char in ["M", "K"]) and len(text) < 10
                             ):
                                 return text
                 except Exception:
@@ -267,10 +265,7 @@ class CompanyScraper(BaseScraper):
             r"[1-9]\d*K\s*employees?",
         ]
 
-        for pattern in patterns:
-            if re.search(pattern, text, re.IGNORECASE):
-                return True
-        return False
+        return any(re.search(pattern, text, re.IGNORECASE) for pattern in patterns)
 
     def _navigate_to_about_page(self) -> dict[str, str]:
         try:
@@ -554,10 +549,7 @@ class CompanyScraper(BaseScraper):
     def _is_member_count(self, text: str) -> bool:
         patterns = [r"\d+,\d+", r"\d+\.\d+K", r"\d+K", r"\d+M"]
 
-        for pattern in patterns:
-            if re.search(pattern, text, re.IGNORECASE):
-                return True
-        return False
+        return any(re.search(pattern, text, re.IGNORECASE) for pattern in patterns)
 
     def _extract_verified_date(self) -> str:
         try:
@@ -621,10 +613,7 @@ class CompanyScraper(BaseScraper):
             r"\b\d{4}-\d{1,2}-\d{1,2}\b",
         ]
 
-        for pattern in date_patterns:
-            if re.search(pattern, text, re.IGNORECASE):
-                return True
-        return False
+        return any(re.search(pattern, text, re.IGNORECASE) for pattern in date_patterns)
 
     def _wait_for_company_page(self) -> bool:
         try:

@@ -2,10 +2,10 @@
 
 Effortless Linkedin scraping with zero detection. Extract, export, and automate your Linkedin data.
 
-
 ## Features
 
 - Search Linkedin profiles with advanced filters (location, connection type, current company, position)
+- Search and extract LinkedIn posts by keywords with comprehensive metadata
 - Extract complete profile information (experience, education, skills, contact details)
 - Get company details and information
 - Retrieve incoming and outgoing connection requests
@@ -20,6 +20,7 @@ Effortless Linkedin scraping with zero detection. Extract, export, and automate 
 Choose your preferred installation method:
 
 #### Option 1: pip (Recommended for general use)
+
 ```bash
 # For Python library only
 pip install linkedin-spider
@@ -35,6 +36,7 @@ pip install linkedin-spider[all]
 ```
 
 #### Option 2: Development setup with uv
+
 ```bash
 # Clone the repo
 git clone https://github.com/vertexcover-io/linkedin-spider
@@ -43,8 +45,7 @@ cd linkedin-spider
 uv sync
 ```
 
-> [!NOTE]
-> **Authentication Update:** Linkedin has enhanced their anti-bot mechanisms, temporarily affecting cookie-based authentication. We recommend using the email/password authentication method for reliable access. We are actively working on restoring full cookie authentication support.
+> [!NOTE] > **Authentication Update:** Linkedin has enhanced their anti-bot mechanisms, temporarily affecting cookie-based authentication. We recommend using the email/password authentication method for reliable access. We are actively working on restoring full cookie authentication support.
 
 ## Different ways to use it
 
@@ -74,6 +75,7 @@ results = scraper.search_profiles("software engineer", max_results=10)
 ```
 
 **Output sample:**
+
 ```json
 [
   {
@@ -94,11 +96,48 @@ results = scraper.search_profiles("software engineer", max_results=10)
 ```
 
 ```python
+# Search for posts by keywords
+posts = scraper.search_posts("artificial intelligence", max_results=10, scroll_pause=2.0)
+```
+
+**Output sample:**
+
+```json
+[
+  {
+    "author_name": "John Doe",
+    "author_headline": "AI Research Scientist at OpenAI",
+    "author_profile_url": "https://linkedin.com/in/johndoe",
+    "connection_degree": "2nd",
+    "post_time": "2024-01-15T14:30:00+00:00",
+    "post_text": "Excited to share our latest research on [large language models](https://example.com/paper)...",
+    "hashtags": ["#AI", "#MachineLearning", "#Research"],
+    "links": ["https://example.com/paper"],
+    "post_url": "https://linkedin.com/feed/update/urn:li:activity:123456789",
+    "media_urls": ["https://media.licdn.com/dms/image/..."],
+    "likes_count": 1247,
+    "comments_count": 89,
+    "reposts_count": 234,
+    "comments": [
+      {
+        "author_name": "Jane Smith",
+        "author_profile_url": "https://linkedin.com/in/janesmith",
+        "comment_text": "Great insights! Looking forward to reading the full paper.",
+        "comment_time": "2024-01-15T15:45:00+00:00",
+        "reactions_count": 12
+      }
+    ]
+  }
+]
+```
+
+```python
 # Scrape individual profile
 profile = scraper.scrape_profile("https://linkedin.com/in/someone")
 ```
 
 **Output sample:**
+
 ```json
 {
   "name": "John Doe",
@@ -130,6 +169,7 @@ company = scraper.scrape_company("https://linkedin.com/company/tech-corp")
 ```
 
 **Output sample:**
+
 ```json
 {
   "name": "TechCorp Inc",
@@ -157,15 +197,35 @@ Great for quick data extraction and scripting:
 
 ```bash
 # If installed via pip
+# Search for profiles
 linkedin-spider-cli search -q "product manager" -n 10 -o results.json --email your@email.com --password yourpassword
+
+# Search for posts
+linkedin-spider-cli search-posts -k "artificial intelligence" -n 10 -s 2.0 -o posts.json --email your@email.com --password yourpassword
+
+# Scrape individual profile
 linkedin-spider-cli profile -u "https://linkedin.com/in/johndoe" -o profile.json --email your@email.com --password yourpassword
+
+# Scrape company
 linkedin-spider-cli company -u "https://linkedin.com/company/openai" -o company.json --email your@email.com --password yourpassword
+
+# Get connection requests
 linkedin-spider-cli connections -n 20 -o connections.json --email your@email.com --password yourpassword
 
 # If using development setup
+# Search for profiles
 uv run linkedin-spider-cli search -q "product manager" -n 10 -o results.json --email your@email.com --password yourpassword
+
+# Search for posts
+uv run linkedin-spider-cli search-posts -k "artificial intelligence" -n 10 -s 2.0 -o posts.json --email your@email.com --password yourpassword
+
+# Scrape individual profile
 uv run linkedin-spider-cli profile -u "https://linkedin.com/in/johndoe" -o profile.json --email your@email.com --password yourpassword
+
+# Scrape company
 uv run linkedin-spider-cli company -u "https://linkedin.com/company/openai" -o company.json --email your@email.com --password yourpassword
+
+# Get connection requests
 uv run linkedin-spider-cli connections -n 20 -o connections.json --email your@email.com --password yourpassword
 ```
 
@@ -223,7 +283,7 @@ TRANSPORT=sse uv run linkedin-spider-mcp serve
 
 ```bash
 # Add to Claude Code
-claude mcp add linkedin-spider --transport sse <server-url> 
+claude mcp add linkedin-spider --transport sse <server-url>
 # Example server URL format: http://localhost:8080/sse
 ```
 
@@ -240,31 +300,37 @@ Add to your Claude Desktop configuration file:
 The Docker approach provides reliable, isolated execution with all dependencies included.
 
 First, build the Docker image:
+
 ```bash
 # Build the stdio server image
 docker build -f Dockerfile.stdio -t linkedin-mcp-stdio .
 ```
 
 Then add this to your Claude Desktop configuration:
+
 ```json
 {
   "mcpServers": {
     "linkedin-spider": {
       "command": "docker",
       "args": [
-        "run", "--rm", "-i",
-        "-e", "LINKEDIN_EMAIL=your_email@example.com",
-        "-e", "LINKEDIN_PASSWORD=your_password",
-        "-e", "HEADLESS=true",
-        "-e", "TRANSPORT=stdio",
+        "run",
+        "--rm",
+        "-i",
+        "-e",
+        "LINKEDIN_EMAIL=your_email@example.com",
+        "-e",
+        "LINKEDIN_PASSWORD=your_password",
+        "-e",
+        "HEADLESS=true",
+        "-e",
+        "TRANSPORT=stdio",
         "linkedin-mcp-stdio"
       ]
     }
   }
 }
 ```
-
-
 
 ## Docker Development & Testing
 
@@ -280,20 +346,22 @@ docker build -t linkedin-mcp .
 ### Run with Different Transports
 
 #### SSE Server
+
 ```bash
 docker run -p 8000:8000 -e TRANSPORT=sse --env-file .env linkedin-mcp
 ```
 
 #### HTTP Server
+
 ```bash
 docker run -p 8000:8000 -e TRANSPORT=http --env-file .env linkedin-mcp
 ```
 
 #### STDIO Server
+
 ```bash
 docker run --rm -i -e TRANSPORT=stdio --env-file .env linkedin-mcp
 ```
-
 
 ## Authentication Methods
 

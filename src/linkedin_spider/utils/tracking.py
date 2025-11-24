@@ -1,3 +1,4 @@
+import contextlib
 import random
 import time
 from typing import Any
@@ -26,10 +27,8 @@ class TrackingHandler:
         ]
 
         for script in scripts:
-            try:
+            with contextlib.suppress(Exception):
                 self.driver.execute_script(script)
-            except Exception:
-                pass
 
     def simulate_natural_browsing(self) -> None:
         """Simulate natural browsing behavior."""

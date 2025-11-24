@@ -4,6 +4,9 @@ import signal
 import sys
 from typing import Any
 
+from linkedin_spider.core.auth import AuthManager
+from linkedin_spider.core.config import ScraperConfig
+from linkedin_spider.core.driver import DriverManager
 from linkedin_spider.scrapers.company import CompanyScraper
 from linkedin_spider.scrapers.connections import ConnectionScraper
 from linkedin_spider.scrapers.conversations import ConversationScraper
@@ -11,9 +14,6 @@ from linkedin_spider.scrapers.profile import ProfileScraper
 from linkedin_spider.scrapers.search import SearchScraper
 from linkedin_spider.utils.human_behavior import HumanBehavior
 from linkedin_spider.utils.tracking import TrackingHandler
-from linkedin_spider.core.auth import AuthManager
-from linkedin_spider.core.config import ScraperConfig
-from linkedin_spider.core.driver import DriverManager
 
 
 class LinkedinSpider:
@@ -75,7 +75,8 @@ class LinkedinSpider:
                 except (psutil.NoSuchProcess, psutil.AccessDenied, psutil.ZombieProcess):
                     continue
             time.sleep(0.2)
-        except Exception:
+        except Exception:  # noqa: S110
+            # Silently ignore cleanup errors to avoid noise during exit
             pass
 
         if signum is not None:
@@ -122,6 +123,62 @@ class LinkedinSpider:
     ) -> list[dict[str, Any]]:
         """Search for LinkedIn profiles."""
         return self.search_scraper.search_profiles(query, max_results, filters)
+
+    def search_posts(
+        self,
+        keywords: str,
+        max_results: int = 10,
+        scroll_pause: float = 2.0,
+        max_comments: int = 10,
+        date_posted: str | None = None,
+    ) -> list[dict[str, Any]]:
+        """
+        Search for LinkedIn posts by keywords.
+
+        Args:
+            keywords: Search keywords (e.g., "bihar elections")
+            max_results: Maximum number of posts to scrape
+            scroll_pause: Pause duration between scrolls in seconds
+            max_comments: Maximum number of comments to fetch per post (0 to skip comments)
+            date_posted: Filter by date posted ("past-24h", "past-week", "past-month", or None)
+
+        Returns:
+            List of dictionaries containing post data with keys:
+            - author_name: Name of the post author
+            - author_headline: Author's headline/title
+            - author_profile_url: URL to author's profile
+            - connection_degree: Connection degree (1st, 2nd, 3rd+)
+            - post_time: ISO 8601 UTC timestamp of when the post was made
+            - post_text: The text content of the post in markdown format (links preserved as [text](url))
+            - hashtags: List of hashtags used in the post
+            - links: List of external domain URLs only (excludes internal LinkedIn links)
+            - post_url: Direct URL to the post
+            - media_urls: List of image/video URLs in the post
+            - likes_count: Number of reactions/likes
+            - comments_count: Number of comments
+            - reposts_count: Number of reposts
+            - comments: List of comment dictionaries with keys:
+                - author_name: Name of comment author
+                - author_profile_url: URL to comment author's profile
+                - comment_text: Comment content in markdown format (links preserved as [text](url))
+                - comment_time: ISO 8601 UTC timestamp of when comment was posted
+                - reactions_count: Number of reactions on the comment
+        """
+        return self.search_scraper.search_posts(
+            keywords, max_results, scroll_pause, max_comments, date_posted
+        )
+
+    def open_link(self, url: str, max_comments: int = 10) -> dict[str, Any] | None:
+        """
+        Open a LinkedIn post URL and extract its content.
+
+        Args:
+            url: LinkedIn post URL (e.g., https://linkedin.com/feed/update/urn:li:activity:...)
+
+        Returns:
+            Dictionary containing post data (same structure as search_posts), or None if failed
+        """
+        return self.search_scraper.open_link(url, max_comments=max_comments)
 
     def scrape_company(self, company_url: str) -> dict[str, Any] | None:
         """Scrape a LinkedIn company page."""
@@ -195,9 +252,10 @@ class LinkedinSpider:
         """Check if session is still alive."""
         try:
             self.driver.execute_script("return window.location.href;")
-            return True
         except Exception:
             return False
+        else:
+            return True
 
     def clear_saved_session(self) -> bool:
         """Clear saved session data."""

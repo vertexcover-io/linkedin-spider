@@ -76,7 +76,7 @@ class ConversationScraper(BaseScraper):
 
     def _load_conversations(self, max_results: int) -> None:
         try:
-            scroll_container = self.wait.until(
+            self.wait.until(
                 EC.presence_of_element_located(
                     (By.CSS_SELECTOR, ".msg-conversations-container--inbox-shortcuts")
                 )

@@ -97,10 +97,10 @@ async def get_session_status() -> str:
         scraper = get_scraper()
         is_active = scraper.keep_alive()
         status = "Active" if is_active else "Inactive"
-        return f"LinkedIn browser session status: {status}"
-
     except Exception as e:
         return f"Error checking session status: {e!s}"
+    else:
+        return f"LinkedIn browser session status: {status}"
 
 
 @mcp_app.tool()
@@ -110,10 +110,10 @@ async def reset_session() -> str:
         if _scraper_instance:
             _scraper_instance.close()
             _scraper_instance = None
-        return "LinkedIn browser session has been reset successfully"
-
     except Exception as e:
         return f"Error resetting session: {e!s}"
+    else:
+        return "LinkedIn browser session has been reset successfully"
 
 
 @mcp_app.tool()
@@ -162,6 +162,44 @@ async def scrape_company(company_url: str) -> str:
 
     except Exception as e:
         return f"Error scraping company {company_url}: {e!s}"
+
+
+@mcp_app.tool()
+async def search_posts(
+    keywords: str,
+    max_results: int = 10,
+    scroll_pause: float = 2.0,
+    max_comments: int = 10,
+    date_posted: str | None = None,
+) -> str:
+    """Search for LinkedIn posts by keywords.
+
+    Args:
+        keywords: Search keywords for posts
+        max_results: Maximum number of posts to retrieve (default: 10)
+        scroll_pause: Pause duration between scrolls in seconds (default: 2.0)
+        max_comments: Maximum comments per post, 0 to skip comments (default: 10)
+        date_posted: Filter by date posted: "past-24h", "past-week", "past-month", or None
+
+    Returns:
+        JSON string containing post data including author info, content, and engagement metrics
+    """
+    if not keywords:
+        raise ValueError("keywords is required")
+
+    try:
+        scraper = get_scraper()
+        results = scraper.search_posts(
+            keywords, max_results, scroll_pause, max_comments, date_posted
+        )
+
+        if results:
+            return f"posts:\n{json.dumps(results, indent=2, ensure_ascii=False)}"
+        else:
+            return f"No posts found for keywords: {keywords}"
+
+    except Exception as e:
+        return f"Error searching posts for '{keywords}': {e!s}"
 
 
 @mcp_app.tool()
@@ -266,14 +304,14 @@ def serve(
         logger.info("Initializing LinkedIn scraper...")
         _initialize_scraper(email, password, cookie, headless)
         logger.info("LinkedIn scraper initialized successfully")
-    except Exception as e:
-        logger.error(f"Failed to initialize scraper: {e}")
-        logger.error("Cannot start server without valid LinkedIn credentials")
+    except Exception:
+        logger.exception("Failed to initialize scraper")
+        logger.exception("Cannot start server without valid LinkedIn credentials")
         sys.exit(1)
 
     logger.info(
         f"FastMCP {transport.upper()} Server initialized with tools: scrape_profile, search_profiles, scrape_company, "
-        "scrape_incoming_connections, scrape_outgoing_connections, scrape_conversations_list, "
+        "search_posts, scrape_incoming_connections, scrape_outgoing_connections, scrape_conversations_list, "
         "scrape_conversation, send_connection_request, get_session_status, reset_session"
     )
 
@@ -354,8 +392,8 @@ def main():
     except KeyboardInterrupt:
         logger.info("Server stopped by user")
         sys.exit(0)
-    except Exception as e:
-        logger.error(f"Server error: {e}")
+    except Exception:
+        logger.exception("Server error")
         sys.exit(1)
 
 

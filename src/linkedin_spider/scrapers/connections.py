@@ -1,3 +1,4 @@
+import contextlib
 import re
 from typing import Any
 
@@ -252,14 +253,12 @@ class ConnectionScraper(BaseScraper):
 
                         self.human_behavior.delay(1, 2)
 
-                        try:
+                        with contextlib.suppress(TimeoutException):
                             self.wait.until_not(
                                 EC.visibility_of_element_located(
                                     (By.CSS_SELECTOR, ".artdeco-dropdown__content")
                                 )
                             )
-                        except TimeoutException:
-                            pass
 
                         return True
 
