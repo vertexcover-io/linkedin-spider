@@ -1,4 +1,4 @@
-from abc import ABC
+import logging
 
 from selenium.webdriver.chrome.webdriver import WebDriver
 from selenium.webdriver.support.ui import WebDriverWait
@@ -6,8 +6,10 @@ from selenium.webdriver.support.ui import WebDriverWait
 from linkedin_spider.utils.human_behavior import HumanBehavior
 from linkedin_spider.utils.tracking import TrackingHandler
 
+logger = logging.getLogger(__name__)
 
-class BaseScraper(ABC):
+
+class BaseScraper:
     """Base class for LinkedIn scrapers with minimal shared functionality."""
 
     def __init__(
@@ -39,10 +41,11 @@ class BaseScraper(ABC):
             WebDriverWait(self.driver, timeout).until(
                 lambda driver: driver.execute_script("return document.readyState") == "complete"
             )
-            return True
         except Exception:
             return False
+        else:
+            return True
 
     def log_action(self, action: str, details: str = "") -> None:
         """Log scraper action."""
-        print(f"[{self.__class__.__name__}] {action}: {details}")
+        logger.info(f"[{self.__class__.__name__}] {action}: {details}")
