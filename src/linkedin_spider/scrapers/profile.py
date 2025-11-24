@@ -232,7 +232,7 @@ class ProfileScraper(BaseScraper):
             exp_data["company_url"] = company_link.get_attribute("href")
 
             company_selectors = [
-                "a[data-field='experience_company_logo'] span[aria-hidden='true']",
+                "a[data-field='experience_company_logo'] > span:first-of-type > span[aria-hidden='true']",
                 "[class*='hoverable-link-text'] span[aria-hidden='true']",
             ]
 
