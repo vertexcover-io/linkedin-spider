@@ -31,6 +31,9 @@ def search(
         Parameter(name=["-o", "--output"], help="Output file path (.json or .csv format)"),
     ] = None,
     headless: bool | None = None,
+    user_agent: Annotated[
+        str | None, Parameter(help="Custom user agent string for requests")
+    ] = None,
     email: Annotated[str | None, Parameter(help="LinkedIn email for authentication")] = None,
     password: Annotated[str | None, Parameter(help="LinkedIn password for authentication")] = None,
     cookie: Annotated[
@@ -41,12 +44,14 @@ def search(
     try:
         config = _create_config(headless)
         credentials = _get_credentials(email, password, cookie)
+        custom_user_agent = _get_user_agent(user_agent)
 
         scraper = LinkedinSpider(
             email=credentials.get("email"),
             password=credentials.get("password"),
             li_at_cookie=credentials.get("cookie"),
             config=config,
+            user_agent=custom_user_agent,
         )
 
         results = scraper.search_profiles(query, max_results)
@@ -73,6 +78,9 @@ def profile(
         Parameter(name=["-o", "--output"], help="Output file path (.json or .csv format)"),
     ] = None,
     headless: bool | None = None,
+    user_agent: Annotated[
+        str | None, Parameter(help="Custom user agent string for requests")
+    ] = None,
     email: Annotated[str | None, Parameter(help="LinkedIn email for authentication")] = None,
     password: Annotated[str | None, Parameter(help="LinkedIn password for authentication")] = None,
     cookie: Annotated[
@@ -83,12 +91,14 @@ def profile(
     try:
         config = _create_config(headless)
         credentials = _get_credentials(email, password, cookie)
+        custom_user_agent = _get_user_agent(user_agent)
 
         scraper = LinkedinSpider(
             email=credentials.get("email"),
             password=credentials.get("password"),
             li_at_cookie=credentials.get("cookie"),
             config=config,
+            user_agent=custom_user_agent,
         )
 
         result = scraper.scrape_profile(url)
@@ -119,6 +129,9 @@ def company(
         Parameter(name=["-o", "--output"], help="Output file path (.json or .csv format)"),
     ] = None,
     headless: bool | None = None,
+    user_agent: Annotated[
+        str | None, Parameter(help="Custom user agent string for requests")
+    ] = None,
     email: Annotated[str | None, Parameter(help="LinkedIn email for authentication")] = None,
     password: Annotated[str | None, Parameter(help="LinkedIn password for authentication")] = None,
     cookie: Annotated[
@@ -129,12 +142,14 @@ def company(
     try:
         config = _create_config(headless)
         credentials = _get_credentials(email, password, cookie)
+        custom_user_agent = _get_user_agent(user_agent)
 
         scraper = LinkedinSpider(
             email=credentials.get("email"),
             password=credentials.get("password"),
             li_at_cookie=credentials.get("cookie"),
             config=config,
+            user_agent=custom_user_agent,
         )
 
         result = scraper.scrape_company(url)
@@ -167,6 +182,9 @@ def connections(
         Parameter(name=["-o", "--output"], help="Output file path (.json or .csv format)"),
     ] = None,
     headless: bool | None = None,
+    user_agent: Annotated[
+        str | None, Parameter(help="Custom user agent string for requests")
+    ] = None,
     email: Annotated[str | None, Parameter(help="LinkedIn email for authentication")] = None,
     password: Annotated[str | None, Parameter(help="LinkedIn password for authentication")] = None,
     cookie: Annotated[
@@ -177,12 +195,14 @@ def connections(
     try:
         config = _create_config(headless)
         credentials = _get_credentials(email, password, cookie)
+        custom_user_agent = _get_user_agent(user_agent)
 
         scraper = LinkedinSpider(
             email=credentials.get("email"),
             password=credentials.get("password"),
             li_at_cookie=credentials.get("cookie"),
             config=config,
+            user_agent=custom_user_agent,
         )
 
         results = scraper.scrape_incoming_connections(max_results)
@@ -231,6 +251,9 @@ def search_posts(
         Parameter(name=["-o", "--output"], help="Output file path (.json or .csv format)"),
     ] = None,
     headless: bool | None = None,
+    user_agent: Annotated[
+        str | None, Parameter(help="Custom user agent string for requests")
+    ] = None,
     email: Annotated[str | None, Parameter(help="LinkedIn email for authentication")] = None,
     password: Annotated[str | None, Parameter(help="LinkedIn password for authentication")] = None,
     cookie: Annotated[
@@ -241,12 +264,14 @@ def search_posts(
     try:
         config = _create_config(headless)
         credentials = _get_credentials(email, password, cookie)
+        custom_user_agent = _get_user_agent(user_agent)
 
         scraper = LinkedinSpider(
             email=credentials.get("email"),
             password=credentials.get("password"),
             li_at_cookie=credentials.get("cookie"),
             config=config,
+            user_agent=custom_user_agent,
         )
 
         print(f"Searching for posts with keywords: '{keywords}'")
@@ -285,12 +310,17 @@ def _create_config(headless: bool | None) -> ScraperConfig:
     return ScraperConfig(headless=headless)
 
 
+def _get_user_agent(user_agent: str | None) -> str | None:
+    """Get user agent from argument or environment variable."""
+    return user_agent or os.getenv("USER_AGENT")
+
+
 def _get_credentials(email: str | None, password: str | None, cookie: str | None) -> dict:
     """Get authentication credentials from arguments or environment."""
     credentials = {
         "email": email or os.getenv("LINKEDIN_EMAIL"),
         "password": password or os.getenv("LINKEDIN_PASSWORD"),
-        "cookie": cookie or os.getenv("LINKEDIN_COOKIE"),
+        "cookie": cookie or os.getenv("cookie"),
     }
 
     if not any(credentials.values()):
@@ -298,7 +328,7 @@ def _get_credentials(email: str | None, password: str | None, cookie: str | None
             "Authentication required. Provide either:\n"
             "1. Email and password (--email, --password)\n"
             "2. LinkedIn cookie (--cookie)\n"
-            "3. Set environment variables: LINKEDIN_EMAIL, LINKEDIN_PASSWORD, or LINKEDIN_COOKIE"
+            "3. Set environment variables: LINKEDIN_EMAIL, LINKEDIN_PASSWORD, or cookie"
         )
 
     return credentials

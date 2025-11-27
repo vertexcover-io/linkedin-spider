@@ -105,19 +105,6 @@ class ConnectionScraper(BaseScraper):
             self.log_action("ERROR", f"Error scraping outgoing connections: {e!s}")
             return []
 
-    def scrape_connections(
-        self, connection_type: str = "both", max_results: int = 10
-    ) -> dict[str, list[dict[str, Any]]]:
-        results = {}
-
-        if connection_type in ["both", "incoming"]:
-            results["incoming"] = self.scrape_incoming_connections(max_results)
-
-        if connection_type in ["both", "outgoing"]:
-            results["outgoing"] = self.scrape_outgoing_connections(max_results)
-
-        return results
-
     def send_connection_request(self, profile_url: str, note: str | None = None) -> bool:
         """Send a connection request to a profile."""
         if not self._is_valid_linkedin_url(profile_url):

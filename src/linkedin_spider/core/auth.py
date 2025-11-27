@@ -1,3 +1,4 @@
+import logging
 import os
 
 from selenium.common.exceptions import NoSuchElementException, TimeoutException
@@ -6,6 +7,8 @@ from selenium.webdriver.support import expected_conditions as EC
 
 from linkedin_spider.core.driver import DriverManager
 from linkedin_spider.utils.human_behavior import HumanBehavior
+
+logger = logging.getLogger(__name__)
 
 
 class AuthManager:
@@ -28,36 +31,59 @@ class AuthManager:
         self.li_at_cookie = li_at_cookie
 
     def authenticate(self) -> bool:
-        """Authenticate using available methods in priority order."""
-        if self._is_authenticated():
+        """
+        Authenticate using available methods with smart fallback priority.
+
+        Priority order:
+        1. Try li_at_cookie from parameter (if provided)
+        2. Check if already authenticated
+        3. Try credentials from parameters (if provided)
+        4. Raise error if no authentication method available
+
+        Returns:
+            bool: True if authentication succeeded
+
+        Raises:
+            Exception: If all authentication methods fail or no credentials provided
+        """
+
+        # Priority 1: If cookie parameter is explicitly provided, use it
+
+        if self.li_at_cookie:
+            logger.info("Using LinkedIn cookie from parameter")
+            if self._authenticate_with_cookie(self.li_at_cookie):
+                self.driver_manager.save_cookies()
+                return True
+            else:
+                logger.error("Cookie from parameter failed")
+                raise Exception("Provided li_at cookie is invalid or expired")
+
+        # Priority 2: Check if already authenticated with saved cookies
+        logger.info("Checking for saved cookies in profile directory...")
+        if self._try_saved_cookies():
+            logger.info("Successfully authenticated using saved cookies")
             return True
-
-        login_with_cred = os.getenv("LOGIN_WITH_CRED", "true").lower() == "true"
-
-        if login_with_cred:
-            if self.email and self.password and self._login_with_credentials():
-                self.driver_manager.save_cookies()
-                return True
-
-            if self.li_at_cookie and self._authenticate_with_cookie():
-                self.driver_manager.save_cookies()
-                return True
-
-            if self._try_saved_cookies():
-                return True
         else:
-            if self._try_saved_cookies():
-                return True
+            logger.info("No valid saved cookies found or authentication failed")
 
-            if self.li_at_cookie and self._authenticate_with_cookie():
+        # Priority 3: Try credentials from parameters if provided
+        if self.email and self.password:
+            logger.info("Using LinkedIn credentials from parameter")
+            if self._login_with_credentials(self.email, self.password):
                 self.driver_manager.save_cookies()
                 return True
+            else:
+                logger.error("Login with provided credentials failed")
+                raise Exception("Login failed with provided credentials")
 
-            if self.email and self.password and self._login_with_credentials():
-                self.driver_manager.save_cookies()
-                return True
-
-        raise Exception("All authentication methods failed")
+        # No authentication method available
+        logger.error("No valid authentication method found")
+        raise Exception(
+            "Authentication required. Saved cookies not found or invalid. Please provide either:\n"
+            "  - li_at cookie (--cookie parameter)\n"
+            "  - Email and password (--email and --password parameters)\n"
+            "  - Set environment variables: LINKEDIN_EMAIL, LINKEDIN_PASSWORD, or cookie"
+        )
 
     def _is_authenticated(self) -> bool:
         """Check if already authenticated by examining current page."""
@@ -113,44 +139,53 @@ class AuthManager:
 
         return self._is_authenticated()
 
-    def _authenticate_with_cookie(self) -> bool:
-        """Authenticate using li_at cookie."""
+    def _authenticate_with_cookie(self, cookie: str) -> bool:
+        """
+        Authenticate using li_at cookie with improved validation.
+
+        Args:
+            cookie: LinkedIn session cookie value
+
+        Returns:
+            bool: True if authentication succeeded
+        """
         try:
-            self.driver.get("https://www.linkedin.com")
-            self.human_behavior.delay()
+            # Use the improved login_with_cookie method from driver_manager
+            success = self.driver_manager.login_with_cookie(cookie)
 
-            self.driver.add_cookie(
-                {
-                    "name": "li_at",
-                    "value": self.li_at_cookie,
-                    "domain": ".linkedin.com",
-                    "path": "/",
-                    "secure": True,
-                }
-            )
+            if success:
+                self.human_behavior.delay(1, 2)
+                self._handle_welcome_page()
+                return self._is_authenticated()
 
-            self.driver.refresh()
-            self.human_behavior.delay(2, 3)
-
-            self._handle_welcome_page()
-            return self._is_authenticated()
-
-        except Exception:
             return False
 
-    def _login_with_credentials(self) -> bool:
-        """Login using email and password."""
+        except Exception as e:
+            logger.error(f"Cookie authentication exception: {e}")
+            return False
+
+    def _login_with_credentials(self, email: str, password: str) -> bool:
+        """
+        Login using email and password.
+
+        Args:
+            email: LinkedIn email
+            password: LinkedIn password
+
+        Returns:
+            bool: True if login succeeded
+        """
         try:
             self.driver.get("https://www.linkedin.com/login")
             self.human_behavior.delay(2, 3)
 
             email_field = self.wait.until(EC.presence_of_element_located((By.ID, "username")))
             self.human_behavior.click(email_field)
-            self.human_behavior.type_text(email_field, self.email)
+            self.human_behavior.type_text(email_field, email)
 
             password_field = self.driver.find_element(By.ID, "password")
             self.human_behavior.click(password_field)
-            self.human_behavior.type_text(password_field, self.password)
+            self.human_behavior.type_text(password_field, password)
 
             self.human_behavior.delay()
 
@@ -160,6 +195,7 @@ class AuthManager:
             self.human_behavior.delay(3, 5)
 
             if self._check_login_errors():
+                logger.error("Login errors detected")
                 return False
 
             if self._is_challenge_present():
@@ -167,7 +203,8 @@ class AuthManager:
 
             return self._is_authenticated()
 
-        except Exception:
+        except Exception as e:
+            logger.error(f"Credential login exception: {e}")
             return False
 
     def _is_challenge_present(self) -> bool:

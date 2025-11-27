@@ -296,13 +296,17 @@ def serve(
         bool,
         Parameter(help="Run browser in headless mode"),
     ] = True,
+    user_agent: Annotated[
+        str | None,
+        Parameter(help="Custom user agent string for requests"),
+    ] = None,
 ):
     """Start the LinkedIn MCP server."""
     logger.info(f"Starting LinkedIn MCP {transport.upper()} Server...")
 
     try:
         logger.info("Initializing LinkedIn scraper...")
-        _initialize_scraper(email, password, cookie, headless)
+        _initialize_scraper(email, password, cookie, headless, user_agent)
         logger.info("LinkedIn scraper initialized successfully")
     except Exception:
         logger.exception("Failed to initialize scraper")
@@ -332,12 +336,14 @@ def _initialize_scraper(
     password: str | None = None,
     cookie: str | None = None,
     headless: bool = True,
+    user_agent: str | None = None,
 ) -> None:
     """Initialize the scraper with proper error handling."""
     global _scraper_instance
 
     if _scraper_instance is None:
         credentials = _get_credentials(email, password, cookie)
+        custom_user_agent = user_agent or os.getenv("USER_AGENT")
         config = ScraperConfig(headless=headless)
 
         _scraper_instance = LinkedinSpider(
@@ -345,6 +351,7 @@ def _initialize_scraper(
             password=credentials.get("password"),
             li_at_cookie=credentials.get("cookie"),
             config=config,
+            user_agent=custom_user_agent,
         )
 
 
@@ -353,17 +360,11 @@ def _get_credentials(email: str | None, password: str | None, cookie: str | None
     credentials = {
         "email": email or os.getenv("LINKEDIN_EMAIL"),
         "password": password or os.getenv("LINKEDIN_PASSWORD"),
-        "cookie": cookie or os.getenv("LINKEDIN_COOKIE"),
+        "cookie": cookie or os.getenv("cookie"),
     }
 
-    if not any(credentials.values()):
-        raise ValueError(
-            "Authentication required. Provide either:\n"
-            "1. Email and password (--email, --password)\n"
-            "2. LinkedIn cookie (--cookie)\n"
-            "3. Set environment variables: LINKEDIN_EMAIL, LINKEDIN_PASSWORD, or LINKEDIN_COOKIE"
-        )
-
+    # Allow None values to let the scraper try saved cookies first
+    # The authentication error will be raised by AuthManager if all methods fail
     return credentials
 
 
