@@ -25,8 +25,11 @@ class LinkedinSpider:
         password: str | None = None,
         li_at_cookie: str | None = None,
         config: ScraperConfig | None = None,
+        user_agent: str | None = None,
     ):
         self.config = config or ScraperConfig()
+        if user_agent:
+            self.config.custom_user_agent = user_agent
         self.driver_manager = DriverManager(self.config)
 
         self.driver = None
@@ -44,6 +47,8 @@ class LinkedinSpider:
         self.conversation_scraper = None
 
         self._credentials = {"email": email, "password": password, "li_at_cookie": li_at_cookie}
+        # if li_at_cookie:
+        #     self.driver_manager.clear_saved_cookies()
 
         self._initialize()
         self._setup_cleanup_handlers()

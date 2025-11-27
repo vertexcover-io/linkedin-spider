@@ -1,40 +1,68 @@
 import contextlib
 import json
+import logging
 import os
 import platform
 import shutil
 import subprocess
+import time
 import zipfile
 from pathlib import Path
+from typing import Dict, Optional
 
 import psutil
 import requests
 from selenium import webdriver
+from selenium.common.exceptions import TimeoutException
 from selenium.webdriver.chrome.options import Options
 from selenium.webdriver.chrome.service import Service
 from selenium.webdriver.common.action_chains import ActionChains
 from selenium.webdriver.support.ui import WebDriverWait
 
-from linkedin_spider.core.config import ScraperConfig
+from linkedin_spider.core.config import ScraperConfig, get_default_user_agent
+
+# Global driver storage to reuse sessions
+active_drivers: Dict[str, webdriver.Chrome] = {}
+
+logger = logging.getLogger(__name__)
 
 
 class DriverManager:
     """Manages Chrome WebDriver setup and lifecycle."""
 
-    def __init__(self, config: ScraperConfig):
+    def __init__(self, config: ScraperConfig, session_id: str = "default"):
         self.config = config
+        self.session_id = session_id
         self.driver: webdriver.Chrome | None = None
         self.wait: WebDriverWait | None = None
         self.actions: ActionChains | None = None
         self.profile_dir: Path | None = None
         self.cookies_file: Path | None = None
 
-    def setup_driver(self) -> webdriver.Chrome:
-        """Setup and configure Chrome WebDriver."""
+    def setup_driver(self, reuse_session: bool = True) -> webdriver.Chrome:
+        """Setup and configure Chrome WebDriver with optional session reuse.
+
+        Args:
+            reuse_session: If True, reuse existing driver if available
+
+        Returns:
+            Configured Chrome WebDriver instance
+        """
+        # Always setup profile directory for cookies file path
         self._setup_profile_directory()
+
+        # Check for existing driver in global storage
+        if reuse_session and self.session_id in active_drivers:
+            logger.info("Using existing Chrome WebDriver session")
+            self.driver = active_drivers[self.session_id]
+            self.wait = WebDriverWait(self.driver, self.config.page_load_timeout)
+            self.actions = ActionChains(self.driver)
+            return self.driver
+
         self._terminate_existing_chrome_processes()
 
         chrome_options = self._create_chrome_options()
+        print("chrome_options",chrome_options)
 
         try:
             driver_path = self._ensure_chromedriver()
@@ -70,6 +98,11 @@ class DriverManager:
         self.wait = WebDriverWait(self.driver, self.config.page_load_timeout)
         self.actions = ActionChains(self.driver)
 
+        # Store in global active_drivers for reuse
+        if reuse_session:
+            active_drivers[self.session_id] = self.driver
+            logger.info("Chrome WebDriver session created and stored for reuse")
+
         return self.driver
 
     def save_cookies(self) -> bool:
@@ -87,6 +120,7 @@ class DriverManager:
 
     def load_cookies(self) -> bool:
         """Load saved cookies into current session."""
+        print("self.cookies_file",self.cookies_file)
         if not self.driver or not self.cookies_file or not self.cookies_file.exists():
             return False
 
@@ -199,6 +233,7 @@ class DriverManager:
 
         for option in self.config.chrome_options:
             chrome_options.add_argument(option)
+        print("self.config.user_agent",self.config.user_agent)
 
         chrome_options.add_argument(f"--user-agent={self.config.user_agent}")
 
@@ -213,7 +248,7 @@ class DriverManager:
 
     def _configure_stealth_mode(self) -> None:
         """Configure stealth mode to avoid detection."""
-        if not self.config.stealth_mode or not self.driver:
+        if not self.driver:
             return
 
         with contextlib.suppress(Exception):
@@ -221,37 +256,48 @@ class DriverManager:
                 "Object.defineProperty(navigator, 'webdriver', {get: () => undefined})"
             )
 
-        if platform.system() == "Darwin":
-            try:
-                self.driver.execute_cdp_cmd(
-                    "Emulation.setUserAgentOverride",
-                    {
-                        "userAgent": self.config.user_agent,
-                        "acceptLanguage": "en-US,en;q=0.9",
-                        "platform": "macOS",
-                    },
-                )
+        # Set user agent via CDP for all platforms (works reliably in both headless and non-headless)
+        try:
+            platform_name = {
+                "Windows": "Win32",
+                "Darwin": "MacIntel",
+                "Linux": "Linux x86_64"
+            }.get(platform.system(), "Win32")
 
-                self.driver.execute_cdp_cmd(
-                    "Emulation.setDeviceMetricsOverride",
-                    {
-                        "width": self.config.window_size[0],
-                        "height": self.config.window_size[1],
-                        "deviceScaleFactor": 2,
-                        "mobile": False,
-                    },
-                )
-
-                self.driver.execute_cdp_cmd(
-                    "Emulation.setTimezoneOverride", {"timezoneId": "America/New_York"}
-                )
-            except Exception:
-                pass
-
-        with contextlib.suppress(Exception):
             self.driver.execute_cdp_cmd(
-                "Page.addScriptToEvaluateOnNewDocument", {"source": self.config.stealth_script}
+                "Emulation.setUserAgentOverride",
+                {
+                    "userAgent": self.config.user_agent,
+                    "acceptLanguage": "en-US,en;q=0.9",
+                    "platform": platform_name,
+                },
             )
+        except Exception:
+            pass
+
+        if self.config.stealth_mode:
+            if platform.system() == "Darwin":
+                try:
+                    self.driver.execute_cdp_cmd(
+                        "Emulation.setDeviceMetricsOverride",
+                        {
+                            "width": self.config.window_size[0],
+                            "height": self.config.window_size[1],
+                            "deviceScaleFactor": 2,
+                            "mobile": False,
+                        },
+                    )
+
+                    self.driver.execute_cdp_cmd(
+                        "Emulation.setTimezoneOverride", {"timezoneId": "India/Kolkata"}
+                    )
+                except Exception:
+                    pass
+
+            with contextlib.suppress(Exception):
+                self.driver.execute_cdp_cmd(
+                    "Page.addScriptToEvaluateOnNewDocument", {"source": self.config.stealth_script}
+                )
 
     def _get_chrome_version(self) -> str | None:
         """Get installed Chrome version."""
@@ -389,3 +435,146 @@ class DriverManager:
             return None
 
         return self._download_and_extract_chromedriver(download_url, version)
+
+    def login_with_cookie(self, cookie: str) -> bool:
+        """
+        Log in to LinkedIn using session cookie with improved validation.
+
+        Args:
+            cookie: LinkedIn session cookie (li_at value)
+
+        Returns:
+            bool: True if login was successful, False otherwise
+        """
+        if not self.driver:
+            logger.error("Driver not initialized")
+            return False
+
+        try:
+            logger.info("Attempting cookie authentication...")
+
+            # Set longer timeout to handle slow LinkedIn loading
+            # Invalid cookies cause indefinite loading, so timeout is our detection mechanism
+            original_timeout = self.driver.timeouts.page_load
+            self.driver.set_page_load_timeout(45)
+
+            # Navigate to LinkedIn first
+            try:
+                self.driver.get("https://www.linkedin.com")
+                time.sleep(1)
+            except TimeoutException:
+                logger.warning("Initial page load timeout")
+                self.driver.set_page_load_timeout(original_timeout)
+                return False
+
+            # Add the cookie
+            cookie_value = cookie.replace("li_at=", "").strip()
+            self.driver.add_cookie({
+                "name": "li_at",
+                "value": cookie_value,
+                "domain": ".linkedin.com",
+                "path": "/",
+                "secure": True,
+            })
+
+            # Refresh to apply cookie
+            try:
+                self.driver.refresh()
+                time.sleep(2)
+            except TimeoutException:
+                logger.warning("Cookie authentication failed - page load timeout (likely invalid cookie)")
+                self.driver.set_page_load_timeout(original_timeout)
+                return False
+
+            # Check authentication status by examining the current URL
+            try:
+                current_url = self.driver.current_url
+
+                # Check if we're on login page (authentication failed)
+                if "login" in current_url or "uas/login" in current_url:
+                    logger.warning("Cookie authentication failed - redirected to login page")
+                    self.driver.set_page_load_timeout(original_timeout)
+                    return False
+
+                # Check if we're on authenticated pages (authentication succeeded)
+                elif any(indicator in current_url for indicator in ["feed", "mynetwork", "linkedin.com/in/", "/feed/"]):
+                    logger.info("Cookie authentication successful")
+                    self.driver.set_page_load_timeout(original_timeout)
+                    return True
+
+                # Unexpected page - wait briefly and check again
+                else:
+                    logger.info("Unexpected page after login, checking authentication status...")
+                    time.sleep(2)
+
+                    final_url = self.driver.current_url
+                    if "login" in final_url or "uas/login" in final_url:
+                        logger.warning("Cookie authentication failed - ended on login page")
+                        self.driver.set_page_load_timeout(original_timeout)
+                        return False
+                    elif any(indicator in final_url for indicator in ["feed", "mynetwork", "linkedin.com/in/", "/feed/"]):
+                        logger.info("Cookie authentication successful after verification")
+                        self.driver.set_page_load_timeout(original_timeout)
+                        return True
+                    else:
+                        logger.warning(f"Cookie authentication uncertain - unexpected final page: {final_url}")
+                        self.driver.set_page_load_timeout(original_timeout)
+                        return False
+
+            except Exception as e:
+                logger.error(f"Error checking authentication status: {e}")
+                self.driver.set_page_load_timeout(original_timeout)
+                return False
+
+        except Exception as e:
+            logger.error(f"Cookie authentication failed with error: {e}")
+            if self.driver:
+                try:
+                    self.driver.set_page_load_timeout(original_timeout or 30)
+                except Exception:
+                    pass
+            return False
+
+    def get_active_driver(self) -> Optional[webdriver.Chrome]:
+        """
+        Get the currently active driver without creating a new one.
+
+        Returns:
+            Optional[webdriver.Chrome]: Active driver if available, None otherwise
+        """
+        return active_drivers.get(self.session_id)
+
+    def capture_session_cookie(self) -> Optional[str]:
+        """
+        Capture LinkedIn session cookie from driver.
+
+        Returns:
+            Optional[str]: Session cookie if found, None otherwise
+        """
+        if not self.driver:
+            return None
+
+        try:
+            # Get li_at cookie which is the main LinkedIn session cookie
+            cookie = self.driver.get_cookie("li_at")
+            if cookie and cookie.get("value"):
+                return f"li_at={cookie['value']}"
+            return None
+        except Exception as e:
+            logger.warning(f"Failed to capture session cookie: {e}")
+            return None
+
+    @staticmethod
+    def close_all_drivers() -> None:
+        """Close all active drivers and clean up resources."""
+        global active_drivers
+
+        for session_id, driver in active_drivers.items():
+            try:
+                logger.info(f"Closing Chrome WebDriver session: {session_id}")
+                driver.quit()
+            except Exception as e:
+                logger.warning(f"Error closing driver {session_id}: {e}")
+
+        active_drivers.clear()
+        logger.info("All Chrome WebDriver sessions closed")

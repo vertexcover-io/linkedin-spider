@@ -1,6 +1,17 @@
 import platform
-import random
 from dataclasses import dataclass
+
+
+def get_default_user_agent() -> str:
+    """Get platform-specific default user agent to reduce fingerprinting."""
+    system = platform.system()
+
+    if system == "Windows":
+        return "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/137.0.0.0 Safari/537.36"
+    elif system == "Darwin":  # macOS
+        return "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/137.0.0.0 Safari/537.36"
+    else:  # Linux and others
+        return "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/137.0.0.0 Safari/537.36"
 
 
 @dataclass
@@ -18,10 +29,13 @@ class ScraperConfig:
     typing_delay_range: tuple[float, float] = (0.03, 0.08)
     mouse_move_variance: int = 10
 
+    custom_user_agent: str | None = None
+    chromedriver_path: str | None = None
+
     @property
     def user_agent(self) -> str:
-        """Get random user agent for current platform."""
-        return self._get_random_user_agent()
+        """Get custom user agent if provided, otherwise get platform-specific default."""
+        return self.custom_user_agent if self.custom_user_agent else get_default_user_agent()
 
     @property
     def chrome_options(self) -> list[str]:
@@ -113,29 +127,6 @@ class ScraperConfig:
             console.debug = () => {};
         } catch (e) {}
         """
-
-    def _get_random_user_agent(self) -> str:
-        """Get random user agent based on platform."""
-        agents = {
-            "Windows": [
-                "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/131.0.0.0 Safari/537.36",
-                "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/130.0.0.0 Safari/537.36",
-                "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/129.0.0.0 Safari/537.36",
-            ],
-            "Darwin": [
-                "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/131.0.0.0 Safari/537.36",
-                "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/130.0.0.0 Safari/537.36",
-                "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/129.0.0.0 Safari/537.36",
-            ],
-            "Linux": [
-                "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/131.0.0.0 Safari/537.36",
-                "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/130.0.0.0 Safari/537.36",
-                "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/129.0.0.0 Safari/537.36",
-            ],
-        }
-
-        system = platform.system()
-        return random.choice(agents.get(system, agents["Linux"]))
 
     def _get_chrome_options(self) -> list[str]:
         """Get Chrome options based on platform."""
