@@ -151,7 +151,6 @@ class ScraperConfig:
             "--no-default-browser-check",
             "--disable-background-networking",
             "--disable-sync",
-            "--metrics-recording-only",
             "--disable-hang-monitor",
             "--disable-prompt-on-repost",
             "--max_old_space_size=4096",
@@ -165,6 +164,12 @@ class ScraperConfig:
             "--disable-features=BlockInsecurePrivateNetworkRequests",
             "--allow-running-insecure-content",
             "--disable-client-side-phishing-detection",
+            # Prevent metrics accumulation to avoid disk space issues
+            "--disable-metrics",
+            "--disable-metrics-reporting",
+            "--disable-crash-reporter",
+            "--disk-cache-size=1",
+            "--media-cache-size=1",
         ]
 
         if platform.system() == "Darwin":
