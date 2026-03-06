@@ -300,13 +300,17 @@ def serve(
         str | None,
         Parameter(help="Custom user agent string for requests"),
     ] = None,
+    proxy: Annotated[
+        str | None,
+        Parameter(help="Proxy server URL (e.g., http://host:port or socks5://host:port)"),
+    ] = None,
 ):
     """Start the LinkedIn MCP server."""
     logger.info(f"Starting LinkedIn MCP {transport.upper()} Server...")
 
     try:
         logger.info("Initializing LinkedIn scraper...")
-        _initialize_scraper(email, password, cookie, headless, user_agent)
+        _initialize_scraper(email, password, cookie, headless, user_agent, proxy)
         logger.info("LinkedIn scraper initialized successfully")
     except Exception:
         logger.exception("Failed to initialize scraper")
@@ -337,6 +341,7 @@ def _initialize_scraper(
     cookie: str | None = None,
     headless: bool = True,
     user_agent: str | None = None,
+    proxy: str | None = None,
 ) -> None:
     """Initialize the scraper with proper error handling."""
     global _scraper_instance
@@ -344,7 +349,8 @@ def _initialize_scraper(
     if _scraper_instance is None:
         credentials = _get_credentials(email, password, cookie)
         custom_user_agent = user_agent or os.getenv("USER_AGENT")
-        config = ScraperConfig(headless=headless)
+        proxy_url = proxy or os.getenv("PROXY_URL")
+        config = ScraperConfig(headless=headless, proxy=proxy_url)
 
         _scraper_instance = LinkedinSpider(
             email=credentials.get("email"),
@@ -360,7 +366,7 @@ def _get_credentials(email: str | None, password: str | None, cookie: str | None
     credentials = {
         "email": email or os.getenv("LINKEDIN_EMAIL"),
         "password": password or os.getenv("LINKEDIN_PASSWORD"),
-        "cookie": cookie or os.getenv("cookie"),
+        "cookie": cookie or os.getenv("LINKEDIN_COOKIE") or os.getenv("cookie"),
     }
 
     # Allow None values to let the scraper try saved cookies first

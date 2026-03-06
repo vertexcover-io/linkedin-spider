@@ -31,6 +31,7 @@ class ScraperConfig:
 
     custom_user_agent: str | None = None
     chromedriver_path: str | None = None
+    proxy: str | None = None
 
     @property
     def user_agent(self) -> str:

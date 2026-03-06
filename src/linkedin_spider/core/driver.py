@@ -237,6 +237,9 @@ class DriverManager:
 
         chrome_options.add_argument(f"--user-agent={self.config.user_agent}")
 
+        if self.config.proxy:
+            chrome_options.add_argument(f"--proxy-server={self.config.proxy}")
+
         chrome_options.add_experimental_option(
             "excludeSwitches", ["enable-automation", "enable-logging"]
         )

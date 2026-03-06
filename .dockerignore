@@ -49,7 +49,6 @@ venv.bak/
 htmlcov/
 
 # Documentation
-*.md
 docs/
 
 # Logs
