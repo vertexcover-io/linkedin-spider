@@ -1,312 +1,124 @@
 # linkedin-spider
 
-Effortless Linkedin scraping with zero detection. Extract, export, and automate your Linkedin data.
+A modern LinkedIn scraping library with built-in anti-detection, available as a Python library, CLI tool, and [MCP](https://modelcontextprotocol.io/) server.
+
+[![PyPI](https://img.shields.io/pypi/v/linkedin-spider?style=flat-square)](https://pypi.org/project/linkedin-spider/)
+[![Python](https://img.shields.io/pypi/pyversions/linkedin-spider?style=flat-square)](https://pypi.org/project/linkedin-spider/)
+[![License](https://img.shields.io/badge/License-MIT-blue?style=flat-square)](LICENSE)
+[![Docker](https://img.shields.io/docker/v/vertexcoverlabs/linkedin-spider?label=Docker&style=flat-square)](https://hub.docker.com/r/vertexcoverlabs/linkedin-spider)
+
+[MCP Server](#mcp-server) · [Python Library](#python-library) · [CLI](#command-line-interface) · [Docker](#docker)
 
 ## Features
 
-- Search Linkedin profiles with advanced filters (location, connection type, current company, position)
-- Search and extract LinkedIn posts by keywords with comprehensive metadata
-- Extract complete profile information (experience, education, skills, contact details)
-- Get company details and information
-- Retrieve incoming and outgoing connection requests
-- Send connection requests to profiles
-- Get conversations list and detailed conversation history
-- Built-in anti-detection and session management
+- **Profile search** with advanced filters (location, industry, company, connection degree)
+- **Post search** by keywords with engagement metrics and comments
+- **Profile scraping** with experience, education, skills, and contact details
+- **Company scraping** with industry, size, specialties, and more
+- **Connection management** — retrieve and send connection requests
+- **Conversations** — list threads and read message history
+- **Proxy support** — route traffic through HTTP or SOCKS5 proxies
+- **Anti-detection** — human-like behavior simulation, stealth mode, session persistence
 
-## Quick Start
-
-### Installation
-
-Choose your preferred installation method:
-
-#### Option 1: pip (Recommended for general use)
+## Installation
 
 ```bash
-# For Python library only
-pip install linkedin-spider
-
-# For CLI usage
-pip install linkedin-spider[cli]
-
-# For MCP server usage
-pip install linkedin-spider[mcp]
-
-# For all features (CLI + MCP + library)
-pip install linkedin-spider[all]
+pip install linkedin-spider        # library only
+pip install linkedin-spider[cli]   # library + CLI
+pip install linkedin-spider[mcp]   # library + MCP server
+pip install linkedin-spider[all]   # everything
 ```
 
-#### Option 2: Development setup with uv
+## Authentication
+
+linkedin-spider supports two authentication methods. Sessions are persisted in a Chrome profile so you typically only authenticate once.
+
+**LinkedIn Cookie (Recommended)**
+
+1. Log in to LinkedIn in your browser
+2. Open DevTools (F12) → Application → Cookies → `linkedin.com`
+3. Copy the `li_at` cookie value
+
+```python
+scraper = LinkedinSpider(li_at_cookie="your_cookie_value")
+```
+
+**Email & Password**
+
+```python
+scraper = LinkedinSpider(email="you@example.com", password="your_password")
+```
+
+For CLI and MCP, pass `--cookie` (or `--email`/`--password`) flags, or set the `LINKEDIN_COOKIE` (or `LINKEDIN_EMAIL`/`LINKEDIN_PASSWORD`) environment variables.
+
+## MCP Server
+
+The MCP server exposes LinkedIn data to AI assistants like Claude.
+
+**Example prompts you can give Claude once connected:**
+
+```
+Research the background of this candidate https://www.linkedin.com/in/johndoe
+```
+
+```
+Find 10 product managers in San Francisco and summarize their experience
+```
+
+```
+What has OpenAI been posting about recently? https://www.linkedin.com/company/openai
+```
+
+```
+Show me my pending connection requests and summarize who they are
+```
+
+It provides 11 tools:
+
+| Tool                          | Description                                                             |
+| ----------------------------- | ----------------------------------------------------------------------- |
+| `search_profiles`             | Search profiles with filters (location, industry, company, connections) |
+| `scrape_profile`              | Extract complete profile data from a URL                                |
+| `search_posts`                | Search posts by keywords with date filters                              |
+| `scrape_company`              | Get company details from a URL                                          |
+| `scrape_incoming_connections` | List pending connection requests received                               |
+| `scrape_outgoing_connections` | List connection requests you've sent                                    |
+| `send_connection_request`     | Send a connection request with optional note                            |
+| `scrape_conversations_list`   | List messaging conversations                                            |
+| `scrape_conversation`         | Read messages from a conversation                                       |
+| `get_session_status`          | Check if the browser session is active                                  |
+| `reset_session`               | Close and reset the browser session                                     |
+
+### Start the server
 
 ```bash
-# Clone the repo
-git clone https://github.com/vertexcover-io/linkedin-spider
-cd linkedin-spider
-# Install with uv
-uv sync
+# stdio (default — for Claude Desktop, Claude Code)
+linkedin-spider-mcp serve --cookie your_li_at_cookie_value
+
+# SSE or HTTP (for remote clients)
+linkedin-spider-mcp serve --transport sse --host 127.0.0.1 --port 8000
+linkedin-spider-mcp serve --transport http --host 0.0.0.0 --port 9000
 ```
 
-> [!NOTE] > **Authentication Update:** Linkedin has enhanced their anti-bot mechanisms, temporarily affecting cookie-based authentication. We recommend using the email/password authentication method for reliable access. We are actively working on restoring full cookie authentication support.
-
-## Different ways to use it
-
-### 1. Python Library
-
-Perfect for integration into your existing Python applications:
-
-```python
-from linkedin_spider import LinkedinSpider, ScraperConfig
-
-config = ScraperConfig(headless=True, page_load_timeout=30)
-```
-
-```python
-# Authenticate (use either email/password or cookie).
-# Authentication is mostly done once and the session is saved in the chrome profile
-scraper = LinkedinSpider(
-    email="your_email@example.com",
-    password="your_password",
-    config=config
-)
-```
-
-```python
-# Search for profiles
-results = scraper.search_profiles("software engineer", max_results=10)
-```
-
-**Output sample:**
-
-```json
-[
-  {
-    "name": "John Doe",
-    "title": "Senior Software Engineer at Google",
-    "location": "San Francisco, CA",
-    "profile_url": "https://linkedin.com/in/johndoe",
-    "connections": "500+"
-  },
-  {
-    "name": "Jane Smith",
-    "title": "Software Engineer at Microsoft",
-    "location": "Seattle, WA",
-    "profile_url": "https://linkedin.com/in/janesmith",
-    "connections": "200+"
-  }
-]
-```
-
-```python
-# Search for posts by keywords
-posts = scraper.search_posts("artificial intelligence", max_results=10, scroll_pause=2.0)
-```
-
-**Output sample:**
-
-```json
-[
-  {
-    "author_name": "John Doe",
-    "author_headline": "AI Research Scientist at OpenAI",
-    "author_profile_url": "https://linkedin.com/in/johndoe",
-    "connection_degree": "2nd",
-    "post_time": "2024-01-15T14:30:00+00:00",
-    "post_text": "Excited to share our latest research on [large language models](https://example.com/paper)...",
-    "hashtags": ["#AI", "#MachineLearning", "#Research"],
-    "links": ["https://example.com/paper"],
-    "post_url": "https://linkedin.com/feed/update/urn:li:activity:123456789",
-    "media_urls": ["https://media.licdn.com/dms/image/..."],
-    "likes_count": 1247,
-    "comments_count": 89,
-    "reposts_count": 234,
-    "comments": [
-      {
-        "author_name": "Jane Smith",
-        "author_profile_url": "https://linkedin.com/in/janesmith",
-        "comment_text": "Great insights! Looking forward to reading the full paper.",
-        "comment_time": "2024-01-15T15:45:00+00:00",
-        "reactions_count": 12
-      }
-    ]
-  }
-]
-```
-
-```python
-# Scrape individual profile
-profile = scraper.scrape_profile("https://linkedin.com/in/someone")
-```
-
-**Output sample:**
-
-```json
-{
-  "name": "John Doe",
-  "title": "Senior Software Engineer",
-  "location": "San Francisco, CA",
-  "about": "Passionate software engineer with 8+ years of experience...",
-  "experience": [
-    {
-      "title": "Senior Software Engineer",
-      "company": "Google",
-      "duration": "2021 - Present",
-      "description": "Leading backend development for search infrastructure..."
-    }
-  ],
-  "education": [
-    {
-      "school": "Stanford University",
-      "degree": "BS Computer Science",
-      "years": "2013 - 2017"
-    }
-  ],
-  "skills": ["Python", "Java", "Kubernetes", "AWS"]
-}
-```
-
-```python
-# Scrape company information
-company = scraper.scrape_company("https://linkedin.com/company/tech-corp")
-```
-
-**Output sample:**
-
-```json
-{
-  "name": "TechCorp Inc",
-  "industry": "Software Development",
-  "company_size": "1,001-5,000 employees",
-  "headquarters": "San Francisco, CA",
-  "founded": "2010",
-  "specialties": ["Cloud Computing", "AI/ML", "Data Analytics"],
-  "description": "Leading technology company focused on enterprise solutions...",
-  "website": "https://techcorp.com",
-  "follower_count": "45,230"
-}
-```
-
-```python
-# Don't forget to clean up
-scraper.close()
-```
-
-For more examples : [examples](./examples)
-
-### 2. Command Line Interface
-
-Great for quick data extraction and scripting:
-
-```bash
-# If installed via pip
-# Search for profiles
-linkedin-spider-cli search -q "product manager" -n 10 -o results.json --email your@email.com --password yourpassword
-
-# Search for posts
-linkedin-spider-cli search-posts -k "artificial intelligence" -n 10 -s 2.0 -o posts.json --email your@email.com --password yourpassword
-
-# Scrape individual profile
-linkedin-spider-cli profile -u "https://linkedin.com/in/johndoe" -o profile.json --email your@email.com --password yourpassword
-
-# Scrape company
-linkedin-spider-cli company -u "https://linkedin.com/company/openai" -o company.json --email your@email.com --password yourpassword
-
-# Get connection requests
-linkedin-spider-cli connections -n 20 -o connections.json --email your@email.com --password yourpassword
-
-# If using development setup
-# Search for profiles
-uv run linkedin-spider-cli search -q "product manager" -n 10 -o results.json --email your@email.com --password yourpassword
-
-# Search for posts
-uv run linkedin-spider-cli search-posts -k "artificial intelligence" -n 10 -s 2.0 -o posts.json --email your@email.com --password yourpassword
-
-# Scrape individual profile
-uv run linkedin-spider-cli profile -u "https://linkedin.com/in/johndoe" -o profile.json --email your@email.com --password yourpassword
-
-# Scrape company
-uv run linkedin-spider-cli company -u "https://linkedin.com/company/openai" -o company.json --email your@email.com --password yourpassword
-
-# Get connection requests
-uv run linkedin-spider-cli connections -n 20 -o connections.json --email your@email.com --password yourpassword
-```
-
-> **Note:** You typically only need to provide `--email` and `--password` once. The CLI saves your authentication session and will reuse it for subsequent commands until the session expires (usually after several hours or days). You can also set `LINKEDIN_EMAIL` and `LINKEDIN_PASSWORD` environment variables to avoid typing them repeatedly.
-
-### 3. MCP Server
-
-Set up environment variables in `.env` file:
+Or configure via environment variables in a `.env` file:
 
 ```env
-# Authentication (choose one method)
-LINKEDIN_EMAIL=your_email@example.com
-LINKEDIN_PASSWORD=your_password
-# OR
 LINKEDIN_COOKIE=your_li_at_cookie_value
-
-# Configuration
 HEADLESS=true
-
-# Transport (optional, defaults to stdio)
-TRANSPORT=sse
-HOST=127.0.0.1
-PORT=8000
+PROXY_URL=http://host:port          # optional
 ```
 
-Start the MCP server:
+### Claude Desktop
 
-```bash
-# If installed via pip
-# Show available transport options
-linkedin-spider-mcp
+Add to your Claude Desktop config file:
 
-# Start with specific transport
-linkedin-spider-mcp serve sse --email your@email.com --password yourpassword
-linkedin-spider-mcp serve http --host 0.0.0.0 --port 9000 --email your@email.com --password yourpassword
-linkedin-spider-mcp serve stdio --email your@email.com --password yourpassword
+- **macOS**: `~/Library/Application Support/Claude/claude_desktop_config.json`
+- **Windows**: `%APPDATA%\Claude\claude_desktop_config.json`
+- **Linux**: `~/.config/Claude/claude_desktop_config.json`
 
-# Or use environment variables
-TRANSPORT=sse linkedin-spider-mcp serve
+#### With Docker (Recommended)
 
-# If using development setup
-# Show available transport options
-uv run linkedin-spider-mcp
-
-# Start with specific transport
-uv run linkedin-spider-mcp serve sse --email your@email.com --password yourpassword
-uv run linkedin-spider-mcp serve http --host 0.0.0.0 --port 9000 --email your@email.com --password yourpassword
-uv run linkedin-spider-mcp serve stdio --email your@email.com --password yourpassword
-
-# Or use environment variables
-TRANSPORT=sse uv run linkedin-spider-mcp serve
-```
-
-#### Claude Code Integration
-
-```bash
-# Add to Claude Code
-claude mcp add linkedin-spider --transport sse <server-url>
-# Example server URL format: http://localhost:8080/sse
-```
-
-#### Claude Desktop Integration
-
-Add to your Claude Desktop configuration file:
-
-**Windows**: `%APPDATA%\Claude\claude_desktop_config.json`
-**macOS**: `~/Library/Application Support/Claude/claude_desktop_config.json`
-**Linux**: `~/.config/Claude/claude_desktop_config.json`
-
-##### Option 1: Docker (Recommended)
-
-The Docker approach provides reliable, isolated execution with all dependencies included.
-
-First, build the Docker image:
-
-```bash
-# Build the stdio server image
-docker build -f Dockerfile.stdio -t linkedin-mcp-stdio .
-```
-
-Then add this to your Claude Desktop configuration:
+No local dependencies required — the Docker image includes Python, Chrome, and everything needed.
 
 ```json
 {
@@ -318,91 +130,240 @@ Then add this to your Claude Desktop configuration:
         "--rm",
         "-i",
         "-e",
-        "LINKEDIN_EMAIL=your_email@example.com",
-        "-e",
-        "LINKEDIN_PASSWORD=your_password",
+        "LINKEDIN_COOKIE=your_li_at_cookie_value",
         "-e",
         "HEADLESS=true",
         "-e",
         "TRANSPORT=stdio",
-        "linkedin-mcp-stdio"
+        "vertexcoverlabs/linkedin-spider"
       ]
     }
   }
 }
 ```
 
-## Docker Development & Testing
+#### Without Docker
 
-For development and testing with Docker, you can use a single image with different transport configurations:
+Requires `pip install linkedin-spider[mcp]` and Chrome installed locally.
 
-### Build the Docker Image
-
-```bash
-# Build once for all transport types
-docker build -t linkedin-mcp .
+```json
+{
+  "mcpServers": {
+    "linkedin-spider": {
+      "command": "linkedin-spider-mcp",
+      "args": ["serve", "--cookie", "your_li_at_cookie_value"]
+    }
+  }
+}
 ```
 
-### Run with Different Transports
+### Claude Code
 
-#### SSE Server
-
-```bash
-docker run -p 8000:8000 -e TRANSPORT=sse --env-file .env linkedin-mcp
-```
-
-#### HTTP Server
+#### With Docker
 
 ```bash
-docker run -p 8000:8000 -e TRANSPORT=http --env-file .env linkedin-mcp
+claude mcp add linkedin-spider -- \
+  docker run --rm -i \
+  -e LINKEDIN_COOKIE=your_li_at_cookie_value \
+  -e HEADLESS=true \
+  -e TRANSPORT=stdio \
+  vertexcoverlabs/linkedin-spider
 ```
 
-#### STDIO Server
+#### Without Docker
 
 ```bash
-docker run --rm -i -e TRANSPORT=stdio --env-file .env linkedin-mcp
+claude mcp add linkedin-spider -- \
+  linkedin-spider-mcp serve --cookie your_li_at_cookie_value
 ```
 
-## Authentication Methods
+Or connect to a running SSE/HTTP server:
 
-### Method 1: Linkedin Cookie
+```bash
+claude mcp add linkedin-spider --transport sse http://localhost:8000/sse
+```
 
-1. Login to Linkedin in your browser
-2. Open Developer Tools (F12)
-3. Go to Application/Storage → Cookies → linkedin.com
-4. Copy the `li_at` cookie value
-5. Use it in your code:
+### Troubleshooting
+
+<details>
+<summary><b>Authentication issues</b></summary>
+
+- **Cookie expired:** LinkedIn cookies expire periodically. Grab a fresh `li_at` value from your browser.
+- **Email/password not working:** LinkedIn may trigger a CAPTCHA or verification. Try cookie auth instead.
+- **Session reuse:** Sessions are saved in a Chrome profile. If things break, delete the profile directory and re-authenticate.
+
+</details>
+
+<details>
+<summary><b>Docker issues</b></summary>
+
+- **First-time pull is slow:** The image is ~1.4GB. Pre-pull with `docker pull vertexcoverlabs/linkedin-spider` before configuring Claude Desktop to avoid timeout.
+- **Port conflicts:** If port 8080 is in use, map to a different host port: `-p 9090:8080`.
+
+</details>
+
+<details>
+<summary><b>Browser / Chrome issues</b></summary>
+
+- **Chrome not found (non-Docker):** Set `CHROMEDRIVER_PATH` in your `.env` or pass `chromedriver_path` in `ScraperConfig`.
+- **Page load timeouts:** Increase `page_load_timeout` in `ScraperConfig` or use a faster proxy.
+- **Headless mode issues:** Some LinkedIn pages behave differently in headless mode. Try `headless=False` for debugging.
+
+</details>
+
+## Python Library
 
 ```python
-scraper = LinkedinSpider(li_at_cookie="your_cookie_value")
-```
+from linkedin_spider import LinkedinSpider, ScraperConfig
 
-### Method 2: Email & Password (Recommended)
-
-```python
+config = ScraperConfig(headless=True, page_load_timeout=30)
 scraper = LinkedinSpider(
-    email="your_email@example.com",
-    password="your_password"
+    li_at_cookie="your_cookie_value",
+    config=config,
 )
+
+# Search profiles
+results = scraper.search_profiles("software engineer", max_results=10)
+
+# Search posts
+posts = scraper.search_posts("artificial intelligence", max_results=10)
+
+# Scrape a single profile
+profile = scraper.scrape_profile("https://linkedin.com/in/someone")
+
+# Scrape a company page
+company = scraper.scrape_company("https://linkedin.com/company/openai")
+
+# Connection requests
+incoming = scraper.scrape_incoming_connections(max_results=20)
+scraper.send_connection_request("https://linkedin.com/in/someone", note="Hi!")
+
+# Conversations
+threads = scraper.scrape_conversations_list(max_results=10)
+messages = scraper.scrape_conversation_messages("John Doe")
+
+# Always clean up
+scraper.close()
 ```
 
-## Contributing
+See the [examples/](./examples) directory for more detailed usage.
 
-We welcome contributions! Please see [CONTRIBUTING.md](CONTRIBUTING.md) for guidelines.
+### Configuration
 
-## License
+`ScraperConfig` accepts the following options:
 
-This project is licensed under the MIT License - see the [LICENSE](LICENSE) file for details.
+| Option              | Default      | Description                          |
+| ------------------- | ------------ | ------------------------------------ |
+| `headless`          | `False`      | Run browser without a visible window |
+| `stealth_mode`      | `True`       | Inject anti-detection scripts        |
+| `page_load_timeout` | `30`         | Page load timeout in seconds         |
+| `implicit_wait`     | `10`         | Implicit wait timeout in seconds     |
+| `human_delay_range` | `(0.5, 2.0)` | Random delay range between actions   |
+| `proxy`             | `None`       | Proxy URL (`http://` or `socks5://`) |
+| `custom_user_agent` | `None`       | Override the default user agent      |
+
+## Command Line Interface
+
+```bash
+# Search profiles
+linkedin-spider-cli search -q "product manager" -n 10 -o results.json
+
+# Search posts
+linkedin-spider-cli search-posts -k "artificial intelligence" -n 10 -o posts.json
+
+# Scrape a profile
+linkedin-spider-cli profile -u "https://linkedin.com/in/johndoe" -o profile.json
+
+# Scrape a company
+linkedin-spider-cli company -u "https://linkedin.com/company/openai" -o company.json
+
+# List connection requests
+linkedin-spider-cli connections -n 20 -o connections.json
+```
+
+Pass `--cookie` on first use (or set `LINKEDIN_COOKIE` env var). You can also use `--email`/`--password` instead. The session is saved and reused for subsequent commands.
+
+Output defaults to stdout. Use `-o` to write JSON or CSV files.
+
+## Docker
+
+A pre-built Docker image is published on [Docker Hub](https://hub.docker.com/r/vertexcoverlabs/linkedin-spider):
+
+```bash
+docker pull vertexcoverlabs/linkedin-spider
+```
+
+Or build locally:
+
+```bash
+docker build -t linkedin-spider .
+```
+
+Run with different transports:
+
+```bash
+# stdio
+docker run --rm -i -e TRANSPORT=stdio --env-file .env vertexcoverlabs/linkedin-spider
+
+# SSE
+docker run -p 8080:8080 -e TRANSPORT=sse --env-file .env vertexcoverlabs/linkedin-spider
+
+# HTTP
+docker run -p 8080:8080 -e TRANSPORT=http --env-file .env vertexcoverlabs/linkedin-spider
+```
+
+## Running in the Cloud
+
+LinkedIn blocks requests from known datacenter IP ranges. To run linkedin-spider on a cloud server (AWS, GCP, Azure, etc.), route browser traffic through a residential or mobile proxy using the `PROXY_URL` environment variable.
+
+```env
+LINKEDIN_COOKIE=your_li_at_cookie_value
+HEADLESS=true
+PROXY_URL=http://user:pass@proxy-host:port
+```
+
+Both HTTP and SOCKS5 proxies are supported:
+
+```env
+PROXY_URL=http://user:pass@proxy-host:port
+PROXY_URL=socks5://user:pass@proxy-host:port
+```
+
+When using Docker, pass it as an environment variable:
+
+```bash
+docker run --rm -i \
+  -e LINKEDIN_COOKIE=your_li_at_cookie_value \
+  -e PROXY_URL=http://user:pass@proxy-host:port \
+  -e HEADLESS=true \
+  -e TRANSPORT=stdio \
+  vertexcoverlabs/linkedin-spider
+```
+
+When using the Python library, pass it via `ScraperConfig`:
+
+```python
+config = ScraperConfig(headless=True, proxy="http://user:pass@proxy-host:port")
+```
+
+> [!TIP]
+> Residential proxies are recommended over datacenter proxies to avoid detection.
+
+## Development
+
+```bash
+git clone https://github.com/vertexcover-io/linkedin-spider
+cd linkedin-spider
+uv sync
+cp .env.example .env   # add your credentials
+```
+
+```bash
+make check    # lint + typecheck
+make test     # run tests
+make build    # build wheel
+```
 
 ## Disclaimer
 
-This tool is for personal use only. Please:
-
-- Respect Linkedin's Terms of Service
-- Use reasonable rate limits
-- Don't spam or harass users
-- Be responsible with the data you collect
-
----
-
-**Ready to extract Linkedin data like a pro?** Star this repo and start scraping!
+This tool is for personal and educational use. Please respect LinkedIn's Terms of Service, use reasonable rate limits, and handle collected data responsibly.
