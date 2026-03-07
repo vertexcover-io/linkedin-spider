@@ -35,8 +35,8 @@ jobs:
           context: .
           push: true
           tags: |
-            vertexcoverlabs/linkedin-spider:${{ steps.tag_version.outputs.VERSION }}
-            vertexcoverlabs/linkedin-spider:latest
+            vertexcoverlabs/linkedin-mcp:${{ steps.tag_version.outputs.VERSION }}
+            vertexcoverlabs/linkedin-mcp:latest
           cache-from: type=gha
           cache-to: type=gha,mode=max
 

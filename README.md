@@ -5,7 +5,7 @@ A modern LinkedIn scraping library with built-in anti-detection, available as a 
 [![PyPI](https://img.shields.io/pypi/v/linkedin-spider?style=flat-square)](https://pypi.org/project/linkedin-spider/)
 [![Python](https://img.shields.io/pypi/pyversions/linkedin-spider?style=flat-square)](https://pypi.org/project/linkedin-spider/)
 [![License](https://img.shields.io/badge/License-MIT-blue?style=flat-square)](LICENSE)
-[![Docker](https://img.shields.io/docker/v/vertexcoverlabs/linkedin-spider?label=Docker&style=flat-square)](https://hub.docker.com/r/vertexcoverlabs/linkedin-spider)
+[![Docker](https://img.shields.io/docker/v/vertexcoverlabs/linkedin-mcp?label=Docker&style=flat-square)](https://hub.docker.com/r/vertexcoverlabs/linkedin-mcp)
 
 [MCP Server](#mcp-server) · [Python Library](#python-library) · [CLI](#command-line-interface) · [Docker](#docker)
 
@@ -135,7 +135,7 @@ No local dependencies required — the Docker image includes Python, Chrome, and
         "HEADLESS=true",
         "-e",
         "TRANSPORT=stdio",
-        "vertexcoverlabs/linkedin-spider"
+        "vertexcoverlabs/linkedin-mcp"
       ]
     }
   }
@@ -167,7 +167,7 @@ claude mcp add linkedin-spider -- \
   -e LINKEDIN_COOKIE=your_li_at_cookie_value \
   -e HEADLESS=true \
   -e TRANSPORT=stdio \
-  vertexcoverlabs/linkedin-spider
+  vertexcoverlabs/linkedin-mcp
 ```
 
 #### Without Docker
@@ -197,7 +197,7 @@ claude mcp add linkedin-spider --transport sse http://localhost:8000/sse
 <details>
 <summary><b>Docker issues</b></summary>
 
-- **First-time pull is slow:** The image is ~1.4GB. Pre-pull with `docker pull vertexcoverlabs/linkedin-spider` before configuring Claude Desktop to avoid timeout.
+- **First-time pull is slow:** The image is ~1.4GB. Pre-pull with `docker pull vertexcoverlabs/linkedin-mcp` before configuring Claude Desktop to avoid timeout.
 - **Port conflicts:** If port 8080 is in use, map to a different host port: `-p 9090:8080`.
 
 </details>
@@ -287,10 +287,10 @@ Output defaults to stdout. Use `-o` to write JSON or CSV files.
 
 ## Docker
 
-A pre-built Docker image is published on [Docker Hub](https://hub.docker.com/r/vertexcoverlabs/linkedin-spider):
+A pre-built Docker image is published on [Docker Hub](https://hub.docker.com/r/vertexcoverlabs/linkedin-mcp):
 
 ```bash
-docker pull vertexcoverlabs/linkedin-spider
+docker pull vertexcoverlabs/linkedin-mcp
 ```
 
 Or build locally:
@@ -303,13 +303,13 @@ Run with different transports:
 
 ```bash
 # stdio
-docker run --rm -i -e TRANSPORT=stdio --env-file .env vertexcoverlabs/linkedin-spider
+docker run --rm -i -e TRANSPORT=stdio --env-file .env vertexcoverlabs/linkedin-mcp
 
 # SSE
-docker run -p 8080:8080 -e TRANSPORT=sse --env-file .env vertexcoverlabs/linkedin-spider
+docker run -p 8080:8080 -e TRANSPORT=sse --env-file .env vertexcoverlabs/linkedin-mcp
 
 # HTTP
-docker run -p 8080:8080 -e TRANSPORT=http --env-file .env vertexcoverlabs/linkedin-spider
+docker run -p 8080:8080 -e TRANSPORT=http --env-file .env vertexcoverlabs/linkedin-mcp
 ```
 
 ## Running in the Cloud
@@ -337,7 +337,7 @@ docker run --rm -i \
   -e PROXY_URL=http://user:pass@proxy-host:port \
   -e HEADLESS=true \
   -e TRANSPORT=stdio \
-  vertexcoverlabs/linkedin-spider
+  vertexcoverlabs/linkedin-mcp
 ```
 
 When using the Python library, pass it via `ScraperConfig`:
