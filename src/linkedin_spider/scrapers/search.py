@@ -334,8 +334,8 @@ class SearchScraper(BaseScraper):
 
     def _find_post_containers(self) -> list[WebElement]:
         """Find all post containers on the page."""
-        # Try multiple selectors for post containers
         selectors = [
+            "div[data-view-name='feed-full-update']",
             "div.feed-shared-update-v2__control-menu-container",
             "div.update-components-update-v2",
             "div[data-urn*='activity']",
@@ -523,7 +523,7 @@ class SearchScraper(BaseScraper):
 
     def _extract_author_info(self, container: WebElement) -> dict[str, Any]:
         """Extract author name, headline, profile URL, and connection degree."""
-        author_info = {
+        author_info: dict[str, Any] = {
             "author_name": "N/A",
             "author_headline": "N/A",
             "author_profile_url": "N/A",
@@ -531,119 +531,105 @@ class SearchScraper(BaseScraper):
         }
 
         try:
-            # Find the actor/author container
-            actor_selectors = [
-                ".update-components-actor__container",
-                ".update-components-actor",
-                ".feed-shared-actor",
-            ]
+            # Strategy: find profile links inside the container, pick the one with text
+            profile_links = container.find_elements(By.CSS_SELECTOR, "a[href*='/in/']")
+            for link in profile_links:
+                link_text = self._extract_text_safe(link)
+                if not link_text:
+                    continue
 
-            actor_container = None
-            for selector in actor_selectors:
-                actor_container = self._find_element_in_parent(container, By.CSS_SELECTOR, selector)
-                if actor_container:
-                    break
+                profile_url = self._extract_attribute_safe(link, "href")
+                if profile_url and "/in/" in profile_url:
+                    author_info["author_profile_url"] = profile_url.split("?")[0]
 
-            if not actor_container:
-                return author_info
+                # Parse name, connection degree, and headline from the link text
+                lines = [ln.strip() for ln in link_text.split("\n") if ln.strip()]
+                # Filter out noise tokens
+                noise = {
+                    "premium profile",
+                    "verified profile",
+                    "follow",
+                    "promoted",
+                    "1st",
+                    "2nd",
+                    "3rd",
+                    "3rd+",
+                }
 
-            # Extract author name and profile URL
-            name_link_selectors = [
-                "a.update-components-actor__meta-link",
-                "a[data-view-name='search-result-lockup-title']",
-                "a.app-aware-link[href*='/in/']",
-            ]
-
-            for selector in name_link_selectors:
-                name_link = self._find_element_in_parent(actor_container, By.CSS_SELECTOR, selector)
-                if name_link:
-                    # Extract profile URL
-                    profile_url = self._extract_attribute_safe(name_link, "href")
-                    if profile_url and "/in/" in profile_url:
-                        # Clean up URL (remove query parameters)
-                        author_info["author_profile_url"] = profile_url.split("?")[0]
-
-                    # Extract name from aria-hidden span to avoid duplicates
-                    name_elem = self._find_element_in_parent(
-                        name_link, By.CSS_SELECTOR, 'span[aria-hidden="true"]'
-                    )
-                    if name_elem:
-                        name_text = self._extract_text_safe(name_elem)
-                        # Clean up any duplicates or extra whitespace
-                        name_lines = [
-                            line.strip() for line in name_text.split("\n") if line.strip()
-                        ]
-                        # Get unique lines preserving order
-                        seen = set()
-                        unique_lines = []
-                        for line in name_lines:
-                            if line not in seen and not line.startswith("•"):
-                                seen.add(line)
-                                unique_lines.append(line)
-                        if unique_lines:
-                            author_info["author_name"] = unique_lines[0]
-                    else:
-                        # Fallback to full text if aria-hidden not found
-                        author_info["author_name"] = self._extract_text_safe(name_link)
-                    break
-
-            # Extract author headline
-            headline_selectors = [
-                ".update-components-actor__description",
-                "span.update-components-actor__description",
-                ".feed-shared-actor__description",
-            ]
-
-            for selector in headline_selectors:
-                headline_elem = self._find_element_in_parent(
-                    actor_container, By.CSS_SELECTOR, selector
-                )
-                if headline_elem:
-                    # Try to get from aria-hidden span first to avoid duplicates
-                    headline_aria = self._find_element_in_parent(
-                        headline_elem, By.CSS_SELECTOR, 'span[aria-hidden="true"]'
-                    )
-                    if headline_aria:
-                        headline_text = self._extract_text_safe(headline_aria)
-                    else:
-                        headline_text = self._extract_text_safe(headline_elem)
-
-                    if headline_text:
-                        # Clean up duplicates
-                        headline_lines = [
-                            line.strip() for line in headline_text.split("\n") if line.strip()
-                        ]
-                        # Get unique lines preserving order
-                        seen = set()
-                        unique_lines = []
-                        for line in headline_lines:
-                            if line not in seen:
-                                seen.add(line)
-                                unique_lines.append(line)
-                        if unique_lines:
-                            author_info["author_headline"] = unique_lines[0]
+                # Connection degree from text like "• 3rd+"
+                for ln in lines:
+                    if "1st" in ln:
+                        author_info["connection_degree"] = "1st"
+                        break
+                    elif "2nd" in ln:
+                        author_info["connection_degree"] = "2nd"
+                        break
+                    elif "3rd" in ln:
+                        author_info["connection_degree"] = "3rd+"
                         break
 
-            # Extract connection degree (e.g., "1st", "2nd", "3rd+")
-            supplementary_selectors = [
-                ".update-components-actor__supplementary-actor-info",
-                "span.update-components-actor__supplementary-actor-info",
-            ]
+                clean_lines = [
+                    ln for ln in lines if ln.lower() not in noise and not ln.startswith("•")
+                ]
 
-            for selector in supplementary_selectors:
-                supplementary_elem = self._find_element_in_parent(
-                    actor_container, By.CSS_SELECTOR, selector
-                )
-                if supplementary_elem:
-                    supplementary_text = self._extract_text_safe(supplementary_elem)
-                    # Extract connection degree from text like "• 1st" or "• 3rd+"
-                    if "1st" in supplementary_text:
-                        author_info["connection_degree"] = "1st"
-                    elif "2nd" in supplementary_text:
-                        author_info["connection_degree"] = "2nd"
-                    elif "3rd" in supplementary_text:
-                        author_info["connection_degree"] = "3rd+"
+                # First clean line is the name (may still contain inline noise)
+                if clean_lines:
+                    name = clean_lines[0]
+                    # Remove trailing noise like "Premium Profile", "Verified Profile", "3rd+"
+                    import re
+
+                    name = re.sub(
+                        r"\s*(Premium Profile|Verified Profile|3rd\+?|2nd|1st)\s*",
+                        "",
+                        name,
+                    ).strip()
+                    if name:
+                        author_info["author_name"] = name
+
+                # Headline: lines after name, skip duplicates of the name
+                headline_candidates = [
+                    ln for ln in clean_lines[1:] if ln != author_info["author_name"]
+                ]
+                if headline_candidates:
+                    author_info["author_headline"] = headline_candidates[0]
+                break
+
+            # Fallback: company-authored posts (no /in/ links)
+            if author_info["author_name"] == "N/A":
+                company_links = container.find_elements(By.CSS_SELECTOR, "a[href*='/company/']")
+                for link in company_links:
+                    link_text = self._extract_text_safe(link)
+                    if not link_text:
+                        continue
+                    lines = [ln.strip() for ln in link_text.split("\n") if ln.strip()]
+                    if lines:
+                        author_info["author_name"] = lines[0]
+                        href = self._extract_attribute_safe(link, "href")
+                        if href:
+                            author_info["author_profile_url"] = href.split("?")[0]
+                        if len(lines) > 1:
+                            author_info["author_headline"] = lines[1]
                     break
+
+            # Fallback: legacy class-based selectors
+            if author_info["author_name"] == "N/A":
+                legacy_selectors = [
+                    ".update-components-actor__container",
+                    ".update-components-actor",
+                    ".feed-shared-actor",
+                ]
+                for selector in legacy_selectors:
+                    actor = self._find_element_in_parent(container, By.CSS_SELECTOR, selector)
+                    if actor:
+                        name_link = self._find_element_in_parent(
+                            actor, By.CSS_SELECTOR, "a.update-components-actor__meta-link"
+                        )
+                        if name_link:
+                            author_info["author_name"] = self._extract_text_safe(name_link)
+                            href = self._extract_attribute_safe(name_link, "href")
+                            if href and "/in/" in href:
+                                author_info["author_profile_url"] = href.split("?")[0]
+                        break
 
         except Exception as e:
             self.log_action("WARNING", f"Error extracting author info: {e!s}")
@@ -778,6 +764,7 @@ class SearchScraper(BaseScraper):
         try:
             # Extract post text
             text_selectors = [
+                "p[data-view-name='feed-commentary']",
                 ".update-components-text",
                 ".feed-shared-update-v2__description",
                 ".feed-shared-text",
@@ -873,6 +860,7 @@ class SearchScraper(BaseScraper):
         try:
             # Extract likes count
             likes_selectors = [
+                "a[data-view-name='feed-reaction-count']",
                 "button[aria-label*='reactions']",
                 "button[data-reaction-details]",
                 ".social-details-social-counts__reactions",
@@ -897,6 +885,7 @@ class SearchScraper(BaseScraper):
 
             # Extract comments count
             comment_selectors = [
+                "div[data-view-name='feed-comment-count'] button",
                 "button[aria-label*='comment']",
                 "li.social-details-social-counts__comments",
                 "button.comment-button",
