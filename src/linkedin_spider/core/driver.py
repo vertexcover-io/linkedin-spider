@@ -92,6 +92,28 @@ class DriverManager:
                 except Exception as fallback_error:
                     raise Exception(f"Chrome driver initialization failed: {fallback_error}") from e  # noqa: TRY002
 
+        # Verify the driver window is alive (catches stale profile crashes)
+        try:
+            self.driver.current_url  # noqa: B018
+        except Exception:
+            logger.warning("Driver window died after creation, retrying without profile reuse")
+            with contextlib.suppress(Exception):
+                self.driver.quit()
+            # Remove stale profile locks and retry
+            if self.profile_dir:
+                for lock_name in ("SingletonLock", "SingletonCookie", "SingletonSocket"):
+                    lock_file = self.profile_dir / lock_name
+                    with contextlib.suppress(Exception):
+                        lock_file.unlink(missing_ok=True)
+            time.sleep(1)
+            chrome_options = self._create_chrome_options()
+            driver_path = self._ensure_chromedriver()
+            if driver_path:
+                service = Service(str(driver_path))
+                self.driver = webdriver.Chrome(service=service, options=chrome_options)
+            else:
+                self.driver = webdriver.Chrome(options=chrome_options)
+
         self._configure_stealth_mode()
         self.wait = WebDriverWait(self.driver, self.config.page_load_timeout)
         self.actions = ActionChains(self.driver)
@@ -464,9 +486,16 @@ class DriverManager:
             try:
                 self.driver.get("https://www.linkedin.com")
                 time.sleep(1)
+                # Verify the window is still alive before adding cookies
+                self.driver.current_url  # noqa: B018
             except TimeoutException:
                 logger.warning("Initial page load timeout")
                 self.driver.set_page_load_timeout(original_timeout)
+                return False
+            except Exception:
+                logger.warning("Browser window lost during navigation, cannot add cookie")
+                with contextlib.suppress(Exception):
+                    self.driver.set_page_load_timeout(original_timeout)
                 return False
 
             # Add the cookie
