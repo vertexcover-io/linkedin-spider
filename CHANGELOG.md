@@ -4,7 +4,9 @@ All notable changes to this project will be documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
+
 ## [v0.1.0] - 2025-09-24
+
 ## [v0.2.0] - 2025-12-01
 
 - No changes
@@ -14,8 +16,6 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## 🔄 Other Changes
 
 - fix cookie auth (#8) @amankumarsingh77
-
-
 
 ## [v0.1.8] - 2025-11-24
 
@@ -44,8 +44,6 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - :wip: feature to search posts based on a topic (#6) @kgritesh
 - Feat/open link (#7) @Hungerarray
 
-
-
 ## [v0.1.2] - 2025-09-24
 
 - No changes
@@ -54,11 +52,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 - No changes
 
-
 ## 🔄 Other Changes
 
 - Refactor/remove relative imports (#3) @amankumarsingh77
 - Refact: Rename project and minor changes (#4) @amankumarsingh77
-
-
-

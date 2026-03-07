@@ -76,6 +76,7 @@ cp .env.example .env
 ```
 
 **Example .env file:**
+
 ```env
 LINKEDIN_EMAIL=your_email@example.com
 LINKEDIN_PASSWORD=your_password
