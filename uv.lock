@@ -1,5 +1,5 @@
 version = 1
-revision = 2
+revision = 3
 requires-python = ">=3.10"
 
 [[package]]
@@ -679,7 +679,6 @@ dependencies = [
     { name = "python-dotenv" },
     { name = "requests" },
     { name = "selenium" },
-    { name = "twine" },
 ]
 
 [package.optional-dependencies]
@@ -692,6 +691,7 @@ all = [
     { name = "pytest" },
     { name = "pytest-asyncio" },
     { name = "ruff" },
+    { name = "twine" },
 ]
 cli = [
     { name = "cyclopts" },
@@ -703,6 +703,7 @@ dev = [
     { name = "pytest" },
     { name = "pytest-asyncio" },
     { name = "ruff" },
+    { name = "twine" },
 ]
 mcp = [
     { name = "cyclopts" },
@@ -744,7 +745,8 @@ requires-dist = [
     { name = "ruff", marker = "extra == 'all'", specifier = ">=0.6.9" },
     { name = "ruff", marker = "extra == 'dev'", specifier = ">=0.6.9" },
     { name = "selenium", specifier = ">=4.35.0" },
-    { name = "twine", specifier = ">=6.2.0" },
+    { name = "twine", marker = "extra == 'all'", specifier = ">=6.2.0" },
+    { name = "twine", marker = "extra == 'dev'", specifier = ">=6.2.0" },
 ]
 provides-extras = ["all", "cli", "dev", "mcp"]
 
