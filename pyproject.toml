@@ -105,7 +105,7 @@ warn_unused_ignores = true
 warn_no_return = true
 warn_unreachable = true
 strict_equality = true
-files = ["src/linkedin_spider", "cli", "mcp"]
+files = ["src/linkedin_spider"]
 
 [[tool.mypy.overrides]]
 module = [
