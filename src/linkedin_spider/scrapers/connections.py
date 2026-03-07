@@ -161,7 +161,6 @@ class ConnectionScraper(BaseScraper):
             try:
                 button = self.driver.find_element(By.CSS_SELECTOR, selector)
                 if button.is_displayed() and button.is_enabled():
-                    print(selector)
                     aria_label = button.get_attribute("aria-label") or ""
                     data_control = button.get_attribute("data-control-name") or ""
                     if (
@@ -539,7 +538,6 @@ class ConnectionScraper(BaseScraper):
         except:
             data["image_url"] = "N/A"
 
-        print(data)
         return data if data.get("name") != "N/A" else None
 
     def _handle_load_more(self) -> bool:

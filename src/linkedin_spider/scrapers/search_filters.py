@@ -1,3 +1,4 @@
+import logging
 import re
 import urllib.parse
 from typing import Any
@@ -7,6 +8,8 @@ from selenium.webdriver.common.by import By
 from selenium.webdriver.remote.webelement import WebElement
 from selenium.webdriver.support import expected_conditions as EC
 from selenium.webdriver.support.wait import WebDriverWait
+
+logger = logging.getLogger(__name__)
 
 
 class SearchFilterHandler:
@@ -80,7 +83,7 @@ class SearchFilterHandler:
 
             return None
         except Exception as e:
-            print(f"Error applying location filter: {e!s}")
+            logger.exception("Error applying location filter: %s", e)
             return None
 
     def _apply_industry_filter(self, industry_query: str) -> dict[str, Any] | None:
@@ -98,7 +101,7 @@ class SearchFilterHandler:
 
             return None
         except Exception as e:
-            print(f"Error applying industry filter: {e!s}")
+            logger.exception("Error applying industry filter: %s", e)
             return None
 
     def _apply_company_filter(self, company_query: str) -> dict[str, Any] | None:
@@ -114,7 +117,7 @@ class SearchFilterHandler:
 
             return None
         except Exception as e:
-            print(f"Error applying company filter: {e!s}")
+            logger.exception("Error applying company filter: %s", e)
             return None
 
     def _apply_connection_filter(self, connection_level: str) -> dict[str, Any] | None:
@@ -143,7 +146,7 @@ class SearchFilterHandler:
 
             return None
         except Exception as e:
-            print(f"Error applying connection filter: {e!s}")
+            logger.exception("Error applying connection filter: %s", e)
             return None
 
     def _find_filter_button_by_text(self, text: str) -> WebElement | None:
@@ -220,7 +223,7 @@ class SearchFilterHandler:
 
             return None
         except Exception as e:
-            print(f"Error in search and select: {e!s}")
+            logger.exception("Error in search and select: %s", e)
             return None
 
     def _wait_for_suggestions(self, timeout: int = 5) -> list[WebElement]:
@@ -311,7 +314,7 @@ class SearchFilterHandler:
 
             return None
         except Exception as e:
-            print(f"Error in modal section search: {e!s}")
+            logger.exception("Error in modal section search: %s", e)
             return None
 
     def _extract_filter_param(self, filter_type: str) -> dict[str, str]:
@@ -377,7 +380,7 @@ class SearchFilterHandler:
 
             return False
         except Exception as e:
-            print(f"Error clicking show results: {e!s}")
+            logger.exception("Error clicking show results: %s", e)
             return False
 
     def reset_filters(self) -> bool:

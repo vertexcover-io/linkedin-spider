@@ -1,5 +1,4 @@
 import logging
-import os
 
 from selenium.common.exceptions import NoSuchElementException, TimeoutException
 from selenium.webdriver.common.by import By
@@ -161,7 +160,7 @@ class AuthManager:
             return False
 
         except Exception as e:
-            logger.error(f"Cookie authentication exception: {e}")
+            logger.exception(f"Cookie authentication exception: {e}")
             return False
 
     def _login_with_credentials(self, email: str, password: str) -> bool:
@@ -204,7 +203,7 @@ class AuthManager:
             return self._is_authenticated()
 
         except Exception as e:
-            logger.error(f"Credential login exception: {e}")
+            logger.exception(f"Credential login exception: {e}")
             return False
 
     def _is_challenge_present(self) -> bool:
@@ -223,14 +222,16 @@ class AuthManager:
 
     def _handle_challenge(self) -> bool:
         """Handle security challenges with user interaction."""
-        print("\n🔒 Security challenge detected!")
-        print("Please complete the challenge manually in the browser window.")
+        logger.warning(
+            "Security challenge detected! Please complete the challenge manually in the browser window."
+        )
 
         max_attempts = 3
 
         for attempt in range(1, max_attempts + 1):
-            print(f"\n[WAIT] Challenge attempt {attempt}/{max_attempts}")
-            print("After completing the challenge, press ENTER to continue...")
+            logger.info(
+                "Challenge attempt %d/%d - waiting for user input...", attempt, max_attempts
+            )
 
             input()
             self.human_behavior.delay(3, 6)
@@ -242,7 +243,7 @@ class AuthManager:
                     try:
                         self.wait.until(EC.presence_of_element_located((By.TAG_NAME, "main")))
                         if self._verify_feed_access():
-                            print("[SUCCESS] Challenge completed successfully!")
+                            logger.info("Challenge completed successfully!")
                             return True
                     except TimeoutException:
                         pass
@@ -253,13 +254,13 @@ class AuthManager:
                 try:
                     self.wait.until(EC.presence_of_element_located((By.TAG_NAME, "main")))
                     if self._verify_feed_access():
-                        print("[SUCCESS] Authentication verified after challenge!")
+                        logger.info("Authentication verified after challenge!")
                         return True
                 except TimeoutException:
                     if not self._is_challenge_present():
                         continue
 
-        print("[ERROR] Failed to complete challenge after multiple attempts")
+        logger.error("Failed to complete challenge after multiple attempts")
         return False
 
     def _check_login_errors(self) -> bool:
