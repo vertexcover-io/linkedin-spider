@@ -79,6 +79,7 @@ linkedin_spider = ["py.typed"]
 "*" = ["*.md", "*.txt", "*.yml", "*.yaml"]
 
 [tool.pytest.ini_options]
+asyncio_mode = "auto"
 testpaths = ["tests"]
 python_files = ["test_*.py", "*_test.py"]
 addopts = [
