@@ -16,7 +16,9 @@ def scrape_profile_example():
     # Use either cookie or email and pass.
     # Authentication is usually done once as the session is stored for the further requests.
     scraper = LinkedinSpider(
-        email="your_email@example.com", password="your_password", config=config
+        email="your_email@example.com",
+        password="your_password",  # noqa: S106
+        config=config,
     )
     try:
         profile_url = "https://www.linkedin.com/in/demo-account/"

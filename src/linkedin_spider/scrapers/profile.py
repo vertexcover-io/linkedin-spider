@@ -1,3 +1,4 @@
+import logging
 import re
 from typing import Any
 
@@ -7,6 +8,8 @@ from selenium.webdriver.remote.webelement import WebElement
 
 from linkedin_spider.scrapers.base import BaseScraper
 from linkedin_spider.utils.pattern_detector import PatternDetector
+
+logger = logging.getLogger(__name__)
 
 
 class ProfileScraper(BaseScraper):
@@ -65,12 +68,11 @@ class ProfileScraper(BaseScraper):
             self.log_action(
                 "SUCCESS", f"Successfully scraped profile: {profile_data.get('name', 'Unknown')}"
             )
-
-            return profile_data
-
         except Exception as e:
             self.log_action("ERROR", f"Error scraping profile {profile_url}: {e!s}")
             return None
+        else:
+            return profile_data
 
     def _extract_name(self) -> str:
         try:
@@ -88,10 +90,9 @@ class ProfileScraper(BaseScraper):
                         return name_text
                 except NoSuchElementException:
                     continue
-
-            return "N/A"
-
         except Exception:
+            return "N/A"
+        else:
             return "N/A"
 
     def _extract_headline(self) -> str:
@@ -110,10 +111,9 @@ class ProfileScraper(BaseScraper):
                         return text
                 except NoSuchElementException:
                     continue
-
-            return "N/A"
-
         except Exception:
+            return "N/A"
+        else:
             return "N/A"
 
     def _extract_location(self) -> str:
@@ -132,10 +132,9 @@ class ProfileScraper(BaseScraper):
                         return text
                 except NoSuchElementException:
                     continue
-
-            return "N/A"
-
         except Exception:
+            return "N/A"
+        else:
             return "N/A"
 
     def _extract_about(self) -> str:
@@ -167,10 +166,9 @@ class ProfileScraper(BaseScraper):
                         return text
                 except NoSuchElementException:
                     continue
-
-            return "N/A"
-
         except Exception:
+            return "N/A"
+        else:
             return "N/A"
 
     def _extract_experience(self) -> list[dict[str, str]]:
@@ -221,9 +219,10 @@ class ProfileScraper(BaseScraper):
                         exp_data["title"] = title_text
                         break
                 except Exception:
+                    logger.debug("Failed to extract title with selector: %s", selector)
                     continue
         except Exception:
-            pass
+            logger.debug("Failed to extract experience title")
 
         try:
             company_link = container.find_element(
@@ -244,9 +243,10 @@ class ProfileScraper(BaseScraper):
                         exp_data["company"] = company_text
                         break
                 except Exception:
+                    logger.debug("Failed to extract company with selector: %s", selector)
                     continue
         except Exception:
-            pass
+            logger.debug("Failed to extract experience company")
 
         try:
             duration_selectors = [
@@ -287,9 +287,10 @@ class ProfileScraper(BaseScraper):
                     if exp_data["duration"] != "N/A":
                         break
                 except Exception:
+                    logger.debug("Failed to extract duration with selector: %s", selector)
                     continue
         except Exception:
-            pass
+            logger.debug("Failed to extract experience duration")
 
         try:
             location_selectors = [
@@ -312,9 +313,10 @@ class ProfileScraper(BaseScraper):
                     if exp_data["location"] != "N/A":
                         break
                 except Exception:
+                    logger.debug("Failed to extract location with selector: %s", selector)
                     continue
         except Exception:
-            pass
+            logger.debug("Failed to extract experience location")
         return exp_data
 
     def _extract_education(self) -> list[dict[str, str]]:
@@ -362,9 +364,10 @@ class ProfileScraper(BaseScraper):
                         edu_data["school"] = school_text
                         break
                 except Exception:
+                    logger.debug("Failed to extract school with selector: %s", selector)
                     continue
         except Exception:
-            pass
+            logger.debug("Failed to extract education school")
 
         try:
             degree_selectors = [
@@ -393,9 +396,10 @@ class ProfileScraper(BaseScraper):
                     if edu_data["degree"] != "N/A":
                         break
                 except Exception:
+                    logger.debug("Failed to extract degree with selector: %s", selector)
                     continue
         except Exception:
-            pass
+            logger.debug("Failed to extract education degree")
 
         try:
             duration_selectors = [
@@ -418,9 +422,10 @@ class ProfileScraper(BaseScraper):
                     if edu_data["duration"] != "N/A":
                         break
                 except Exception:
+                    logger.debug("Failed to extract edu duration with selector: %s", selector)
                     continue
         except Exception:
-            pass
+            logger.debug("Failed to extract education duration")
 
         try:
             grade_selectors = [
@@ -443,9 +448,10 @@ class ProfileScraper(BaseScraper):
                     if edu_data["grade"] != "N/A":
                         break
                 except Exception:
+                    logger.debug("Failed to extract grade with selector: %s", selector)
                     continue
         except Exception:
-            pass
+            logger.debug("Failed to extract education grade")
 
         return edu_data
 
@@ -467,9 +473,11 @@ class ProfileScraper(BaseScraper):
                             continue
 
                         section = self.driver.find_element(By.XPATH, selector)
-                        return section
                     except Exception:
+                        logger.debug("Failed to find section with selector: %s", selector)
                         continue
+                    else:
+                        return section
 
             fallback_selectors = [
                 "section:has(h2):has(.pvs-list__paged-list-item)",
@@ -480,12 +488,14 @@ class ProfileScraper(BaseScraper):
             for selector in fallback_selectors:
                 try:
                     section = self.driver.find_element(By.CSS_SELECTOR, selector)
-                    return section
                 except Exception:
+                    logger.debug("Failed to find section with fallback selector: %s", selector)
                     continue
+                else:
+                    return section
 
         except Exception:
-            pass
+            logger.debug("Failed to find section by heading")
 
         return None
 
@@ -513,6 +523,7 @@ class ProfileScraper(BaseScraper):
                     if elements and elements[0].is_displayed():
                         return True
                 except Exception:
+                    logger.debug("Failed to check profile indicator: %s", selector)
                     continue
 
             page_source = self.driver.page_source.lower()

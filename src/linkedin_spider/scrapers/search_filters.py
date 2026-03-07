@@ -80,10 +80,10 @@ class SearchFilterHandler:
                 dropdown_opened = self._wait_for_dropdown()
                 if dropdown_opened:
                     return self._search_and_select_filter_option(location_query, "location")
-
+        except Exception:
+            logger.exception("Error applying location filter")
             return None
-        except Exception as e:
-            logger.exception("Error applying location filter: %s", e)
+        else:
             return None
 
     def _apply_industry_filter(self, industry_query: str) -> dict[str, Any] | None:
@@ -98,10 +98,10 @@ class SearchFilterHandler:
                     return self._search_in_modal_section(
                         industry_section, industry_query, "industry"
                     )
-
+        except Exception:
+            logger.exception("Error applying industry filter")
             return None
-        except Exception as e:
-            logger.exception("Error applying industry filter: %s", e)
+        else:
             return None
 
     def _apply_company_filter(self, company_query: str) -> dict[str, Any] | None:
@@ -114,10 +114,10 @@ class SearchFilterHandler:
                 dropdown_opened = self._wait_for_dropdown()
                 if dropdown_opened:
                     return self._search_and_select_filter_option(company_query, "company")
-
+        except Exception:
+            logger.exception("Error applying company filter")
             return None
-        except Exception as e:
-            logger.exception("Error applying company filter: %s", e)
+        else:
             return None
 
     def _apply_connection_filter(self, connection_level: str) -> dict[str, Any] | None:
@@ -143,10 +143,10 @@ class SearchFilterHandler:
                 self.driver.execute_script("arguments[0].click();", connection_button)
                 self.human_behavior.delay(1, 2)
                 return {"level": target_connection, "param": self._extract_connection_param()}
-
+        except Exception:
+            logger.exception("Error applying connection filter")
             return None
-        except Exception as e:
-            logger.exception("Error applying connection filter: %s", e)
+        else:
             return None
 
     def _find_filter_button_by_text(self, text: str) -> WebElement | None:
@@ -157,8 +157,9 @@ class SearchFilterHandler:
             for button in buttons:
                 if text.lower() in button.text.lower():
                     return button
+        except Exception:
             return None
-        except:
+        else:
             return None
 
     def _find_button_by_text(self, text: str) -> WebElement | None:
@@ -167,8 +168,9 @@ class SearchFilterHandler:
             for button in buttons:
                 if text.lower() in button.text.lower():
                     return button
+        except Exception:
             return None
-        except:
+        else:
             return None
 
     def _wait_for_dropdown(self, timeout: int = 5) -> bool:
@@ -178,9 +180,10 @@ class SearchFilterHandler:
                     (By.CSS_SELECTOR, "input[placeholder*='Add'], input[type='text']")
                 )
             )
-            return True
         except TimeoutException:
             return False
+        else:
+            return True
 
     def _search_and_select_filter_option(
         self, query: str, filter_type: str
@@ -211,6 +214,7 @@ class SearchFilterHandler:
                             best_match_found = True
                             break
                     except Exception:
+                        logger.debug("Failed to process suggestion element")
                         continue
 
                 if best_match_found:
@@ -220,10 +224,10 @@ class SearchFilterHandler:
                         "selected": best_match_text,
                         "param": self._extract_filter_param(filter_type),
                     }
-
+        except Exception:
+            logger.exception("Error in search and select")
             return None
-        except Exception as e:
-            logger.exception("Error in search and select: %s", e)
+        else:
             return None
 
     def _wait_for_suggestions(self, timeout: int = 5) -> list[WebElement]:
@@ -261,7 +265,8 @@ class SearchFilterHandler:
                     if score > highest_score:
                         highest_score = score
                         best_match = suggestion
-            except:
+            except Exception:
+                logger.debug("Failed to process suggestion for best match")
                 continue
 
         return best_match if best_match else (suggestions[0] if suggestions else None)
@@ -274,8 +279,9 @@ class SearchFilterHandler:
             for heading in headings:
                 if section_name.lower() in heading.text.lower():
                     return heading.find_element(By.XPATH, "./following-sibling::*[1]")
+        except Exception:
             return None
-        except:
+        else:
             return None
 
     def _search_in_modal_section(
@@ -311,10 +317,10 @@ class SearchFilterHandler:
                     "selected": best_match.text,
                     "param": self._extract_filter_param(filter_type),
                 }
-
+        except Exception:
+            logger.exception("Error in modal section search")
             return None
-        except Exception as e:
-            logger.exception("Error in modal section search: %s", e)
+        else:
             return None
 
     def _extract_filter_param(self, filter_type: str) -> dict[str, str]:
@@ -375,12 +381,13 @@ class SearchFilterHandler:
                             )
                         )
                         return True
-                except:
+                except Exception:
+                    logger.debug("Failed to click show results with selector")
                     continue
-
+        except Exception:
+            logger.exception("Error clicking show results")
             return False
-        except Exception as e:
-            logger.exception("Error clicking show results: %s", e)
+        else:
             return False
 
     def reset_filters(self) -> bool:
@@ -391,6 +398,7 @@ class SearchFilterHandler:
                 self.human_behavior.delay(1, 2)
                 self.current_filters = {}
                 return True
+        except Exception:
             return False
-        except:
+        else:
             return False

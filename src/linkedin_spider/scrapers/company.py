@@ -1,3 +1,4 @@
+import logging
 import re
 from typing import Any
 
@@ -6,6 +7,8 @@ from selenium.webdriver.common.by import By
 
 from linkedin_spider.scrapers.base import BaseScraper
 from linkedin_spider.utils.pattern_detector import PatternDetector
+
+logger = logging.getLogger(__name__)
 
 
 class CompanyScraper(BaseScraper):
@@ -63,12 +66,11 @@ class CompanyScraper(BaseScraper):
             self.log_action(
                 "SUCCESS", f"Successfully scraped company: {company_data.get('name', 'Unknown')}"
             )
-
-            return company_data
-
         except Exception as e:
             self.log_action("ERROR", f"Error scraping company {company_url}: {e!s}")
             return None
+        else:
+            return company_data
 
     def _extract_company_name(self) -> str:
         try:
@@ -86,9 +88,9 @@ class CompanyScraper(BaseScraper):
                         return name
                 except NoSuchElementException:
                     continue
-
-            return "N/A"
         except Exception:
+            return "N/A"
+        else:
             return "N/A"
 
     def _extract_tagline(self) -> str:
@@ -106,9 +108,9 @@ class CompanyScraper(BaseScraper):
                         return tagline
                 except NoSuchElementException:
                     continue
-
-            return "N/A"
         except Exception:
+            return "N/A"
+        else:
             return "N/A"
 
     def _extract_logo(self) -> str:
@@ -127,9 +129,9 @@ class CompanyScraper(BaseScraper):
                         return logo_url
                 except NoSuchElementException:
                     continue
-
-            return "N/A"
         except Exception:
+            return "N/A"
+        else:
             return "N/A"
 
     def _extract_verification_status(self) -> bool:
@@ -147,9 +149,9 @@ class CompanyScraper(BaseScraper):
                         return True
                 except NoSuchElementException:
                     continue
-
-            return False
         except Exception:
+            return False
+        else:
             return False
 
     def _extract_industry(self) -> str:
@@ -178,10 +180,11 @@ class CompanyScraper(BaseScraper):
                         ):
                             return text
                 except Exception:
+                    logger.warning("Failed to extract industry with selector: %s", selector)
                     continue
-
-            return "N/A"
         except Exception:
+            return "N/A"
+        else:
             return "N/A"
 
     def _extract_location(self) -> str:
@@ -199,10 +202,11 @@ class CompanyScraper(BaseScraper):
                         if text and self.pattern_detector.is_likely_location(text):
                             return text
                 except Exception:
+                    logger.warning("Failed to extract location with selector: %s", selector)
                     continue
-
-            return "N/A"
         except Exception:
+            return "N/A"
+        else:
             return "N/A"
 
     def _extract_followers(self) -> str:
@@ -217,16 +221,21 @@ class CompanyScraper(BaseScraper):
                     elements = self.driver.find_elements(By.CSS_SELECTOR, selector)
                     for element in elements:
                         text = element.text.strip()
-                        if text and ("followers" in text.lower() or "M" in text or "K" in text):
-                            if "followers" in text.lower() or (
-                                any(char in text for char in ["M", "K"]) and len(text) < 10
-                            ):
-                                return text
+                        if (
+                            text
+                            and ("followers" in text.lower() or "M" in text or "K" in text)
+                            and (
+                                "followers" in text.lower()
+                                or (any(char in text for char in ["M", "K"]) and len(text) < 10)
+                            )
+                        ):
+                            return text
                 except Exception:
+                    logger.warning("Failed to extract followers with selector: %s", selector)
                     continue
-
-            return "N/A"
         except Exception:
+            return "N/A"
+        else:
             return "N/A"
 
     def _extract_employee_count(self) -> str:
@@ -247,17 +256,18 @@ class CompanyScraper(BaseScraper):
                         ):
                             return text
                 except Exception:
+                    logger.warning("Failed to extract employee count with selector: %s", selector)
                     continue
-
-            return "N/A"
         except Exception:
+            return "N/A"
+        else:
             return "N/A"
 
     def _contains_employee_range(self, text: str) -> bool:
         patterns = [
-            r"\d+[-–]\d+",
-            r"\d+K[-–]\d+K",
-            r"\d+,\d+[-–]\d+,\d+",
+            r"\d+[-\u2013]\d+",  # hyphen or en dash
+            r"\d+K[-\u2013]\d+K",  # hyphen or en dash
+            r"\d+,\d+[-\u2013]\d+,\d+",  # hyphen or en dash
             r"\d+\+",
             r"\d+K\+",
             r"\d+,\d+\+",
@@ -286,12 +296,11 @@ class CompanyScraper(BaseScraper):
             about_data["company_size"] = self._extract_company_size()
             about_data["associated_members"] = self._extract_associated_members()
             about_data["verified_date"] = self._extract_verified_date()
-
-            return about_data
-
         except Exception as e:
             self.log_action("ERROR", f"Error navigating to about page: {e!s}")
             return {}
+        else:
+            return about_data
 
     def _extract_description(self) -> str:
         try:
@@ -309,9 +318,9 @@ class CompanyScraper(BaseScraper):
                         return description
                 except NoSuchElementException:
                     continue
-
-            return "N/A"
         except Exception:
+            return "N/A"
+        else:
             return "N/A"
 
     def _extract_website(self) -> str:
@@ -330,9 +339,9 @@ class CompanyScraper(BaseScraper):
                         return website
                 except NoSuchElementException:
                     continue
-
-            return "N/A"
         except Exception:
+            return "N/A"
+        else:
             return "N/A"
 
     def _extract_headquarters(self) -> str:
@@ -355,7 +364,10 @@ class CompanyScraper(BaseScraper):
                                 headquarters = dd_element.text.strip()
                                 if headquarters:
                                     return headquarters
-                            except:
+                            except Exception:
+                                logger.warning(
+                                    "Failed to find headquarters dd element via primary xpath"
+                                )
                                 try:
                                     parent = element.find_element(By.XPATH, "./../..")
                                     dd_element = parent.find_element(
@@ -364,9 +376,13 @@ class CompanyScraper(BaseScraper):
                                     headquarters = dd_element.text.strip()
                                     if headquarters:
                                         return headquarters
-                                except:
+                                except Exception:
+                                    logger.warning(
+                                        "Failed to find headquarters dd element via fallback xpath"
+                                    )
                                     continue
                 except Exception:
+                    logger.warning("Failed to extract headquarters with selector: %s", selector)
                     continue
 
             fallback_selectors = [
@@ -386,10 +402,13 @@ class CompanyScraper(BaseScraper):
                         ):
                             return text
                 except Exception:
+                    logger.warning(
+                        "Failed to extract headquarters with fallback selector: %s", selector
+                    )
                     continue
-
-            return "N/A"
         except Exception:
+            return "N/A"
+        else:
             return "N/A"
 
     def _extract_founded(self) -> str:
@@ -412,7 +431,10 @@ class CompanyScraper(BaseScraper):
                                 founded = dd_element.text.strip()
                                 if founded and self._is_valid_year(founded):
                                     return founded
-                            except:
+                            except Exception:
+                                logger.warning(
+                                    "Failed to find founded dd element via primary xpath"
+                                )
                                 try:
                                     parent = element.find_element(By.XPATH, "./../..")
                                     dd_element = parent.find_element(
@@ -421,9 +443,13 @@ class CompanyScraper(BaseScraper):
                                     founded = dd_element.text.strip()
                                     if founded and self._is_valid_year(founded):
                                         return founded
-                                except:
+                                except Exception:
+                                    logger.warning(
+                                        "Failed to find founded dd element via fallback xpath"
+                                    )
                                     continue
                 except Exception:
+                    logger.warning("Failed to extract founded with selector: %s", selector)
                     continue
 
             fallback_selectors = [
@@ -439,10 +465,11 @@ class CompanyScraper(BaseScraper):
                         if text and self._is_valid_year(text):
                             return text
                 except Exception:
+                    logger.warning("Failed to extract founded with fallback selector: %s", selector)
                     continue
-
-            return "N/A"
         except Exception:
+            return "N/A"
+        else:
             return "N/A"
 
     def _is_valid_year(self, text: str) -> bool:
@@ -469,7 +496,10 @@ class CompanyScraper(BaseScraper):
                                 size = dd_element.text.strip()
                                 if size and self._contains_employee_range(size):
                                     return size
-                            except:
+                            except Exception:
+                                logger.warning(
+                                    "Failed to find company size dd element via primary xpath"
+                                )
                                 try:
                                     parent = element.find_element(By.XPATH, "./../..")
                                     dd_element = parent.find_element(
@@ -478,9 +508,13 @@ class CompanyScraper(BaseScraper):
                                     size = dd_element.text.strip()
                                     if size and self._contains_employee_range(size):
                                         return size
-                                except:
+                                except Exception:
+                                    logger.warning(
+                                        "Failed to find company size dd element via fallback xpath"
+                                    )
                                     continue
                 except Exception:
+                    logger.warning("Failed to extract company size with selector: %s", selector)
                     continue
 
             fallback_selectors = [
@@ -497,10 +531,13 @@ class CompanyScraper(BaseScraper):
                         if text and self._contains_employee_range(text):
                             return text
                 except Exception:
+                    logger.warning(
+                        "Failed to extract company size with fallback selector: %s", selector
+                    )
                     continue
-
-            return "N/A"
         except Exception:
+            return "N/A"
+        else:
             return "N/A"
 
     def _extract_associated_members(self) -> str:
@@ -524,6 +561,9 @@ class CompanyScraper(BaseScraper):
                             if "associated members" in parent_text.lower():
                                 return parent_text
                 except Exception:
+                    logger.warning(
+                        "Failed to extract associated members with selector: %s", selector
+                    )
                     continue
 
             xpath_selectors = [
@@ -540,10 +580,11 @@ class CompanyScraper(BaseScraper):
                         if text and "associated members" in text.lower():
                             return text
                 except Exception:
+                    logger.warning("Failed to extract associated members with xpath: %s", xpath)
                     continue
-
-            return "N/A"
         except Exception:
+            return "N/A"
+        else:
             return "N/A"
 
     def _is_member_count(self, text: str) -> bool:
@@ -572,7 +613,10 @@ class CompanyScraper(BaseScraper):
                                 verified_date = dd_element.text.strip()
                                 if verified_date and self._is_valid_date(verified_date):
                                     return verified_date
-                            except:
+                            except Exception:
+                                logger.warning(
+                                    "Failed to find verified date dd element via primary xpath"
+                                )
                                 try:
                                     parent = element.find_element(By.XPATH, "./../..")
                                     dd_element = parent.find_element(
@@ -581,9 +625,13 @@ class CompanyScraper(BaseScraper):
                                     verified_date = dd_element.text.strip()
                                     if verified_date and self._is_valid_date(verified_date):
                                         return verified_date
-                                except:
+                                except Exception:
+                                    logger.warning(
+                                        "Failed to find verified date dd element via fallback xpath"
+                                    )
                                     continue
                 except Exception:
+                    logger.warning("Failed to extract verified date with selector: %s", selector)
                     continue
 
             fallback_selectors = [
@@ -599,10 +647,13 @@ class CompanyScraper(BaseScraper):
                         if text and self._is_valid_date(text):
                             return text
                 except Exception:
+                    logger.warning(
+                        "Failed to extract verified date with fallback selector: %s", selector
+                    )
                     continue
-
-            return "N/A"
         except Exception:
+            return "N/A"
+        else:
             return "N/A"
 
     def _is_valid_date(self, text: str) -> bool:
@@ -636,6 +687,7 @@ class CompanyScraper(BaseScraper):
                     if elements and elements[0].is_displayed():
                         return True
                 except Exception:
+                    logger.warning("Failed to check company indicator: %s", selector)
                     continue
 
             page_source = self.driver.page_source.lower()
@@ -661,6 +713,7 @@ class CompanyScraper(BaseScraper):
                     if elements:
                         return True
                 except Exception:
+                    logger.warning("Failed to check about page indicator: %s", selector)
                     continue
 
             page_source = self.driver.page_source.lower()

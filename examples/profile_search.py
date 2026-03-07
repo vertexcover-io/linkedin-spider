@@ -13,7 +13,7 @@ def search_profiles_example():
     # Authentication is usually done once as the session is stored for the further requests.
     scraper = LinkedinSpider(
         email="your_email@example.com",
-        password="your_password",
+        password="your_password",  # noqa: S106
         # li_at_cookie="your_cookie"
         config=config,
     )

@@ -1,3 +1,4 @@
+import logging
 import random
 import time
 from typing import Any
@@ -6,6 +7,8 @@ from selenium.webdriver.common.keys import Keys
 from selenium.webdriver.remote.webelement import WebElement
 
 from linkedin_spider.core.config import ScraperConfig
+
+logger = logging.getLogger(__name__)
 
 
 class HumanBehavior:
@@ -23,9 +26,9 @@ class HumanBehavior:
             if min_delay is None and max_delay is None:
                 min_delay, max_delay = self.config.human_delay_range
             elif max_delay is None:
-                if not isinstance(min_delay, (int, float)):
+                if not isinstance(min_delay, int | float):
                     min_delay = 1.0
-                max_delay = float(min_delay) + random.uniform(0.5, 2.0)
+                max_delay = float(min_delay) + random.uniform(0.5, 2.0)  # noqa: S311
 
             min_delay = float(min_delay) if min_delay is not None else 1.0
             max_delay = float(max_delay) if max_delay is not None else 2.0
@@ -33,10 +36,10 @@ class HumanBehavior:
             if min_delay > max_delay:
                 min_delay, max_delay = max_delay, min_delay
 
-            delay = random.uniform(min_delay, max_delay)
+            delay = random.uniform(min_delay, max_delay)  # noqa: S311
             time.sleep(delay)
         except (TypeError, ValueError):
-            time.sleep(random.uniform(1.0, 2.0))
+            time.sleep(random.uniform(1.0, 2.0))  # noqa: S311
 
     def type_text(self, element: WebElement, text: str, clear_first: bool = True) -> None:
         """Type text with human-like behavior including occasional typos."""
@@ -44,18 +47,18 @@ class HumanBehavior:
             element.clear()
             self.delay(0.2, 0.5)
 
-        if len(text) > 5 and random.random() < 0.1:
+        if len(text) > 5 and random.random() < 0.1:  # noqa: S311
             self._type_with_typo(element, text)
         else:
             self._type_normally(element, text)
 
-        if random.random() < 0.3:
+        if random.random() < 0.3:  # noqa: S311
             self.delay(0.3, 0.8)
 
     def click(self, element: WebElement) -> None:
         """Click element with human-like behavior."""
         try:
-            if random.random() < 0.7:
+            if random.random() < 0.7:  # noqa: S311
                 self._move_to_element_gradually(element)
 
             self.delay(0.1, 0.3)
@@ -66,7 +69,7 @@ class HumanBehavior:
                 self.driver.execute_script("arguments[0].click();", element)
                 self.delay(0.2, 0.5)
             except Exception:
-                pass
+                logger.debug("Failed to click element via JavaScript fallback")
 
     def scroll_to_element(self, element: WebElement) -> None:
         """Scroll to element with human-like behavior."""
@@ -76,7 +79,7 @@ class HumanBehavior:
             )
             self.delay(*self.config.scroll_pause_range)
         except Exception:
-            pass
+            logger.debug("Failed to scroll to element")
 
     def scroll_down(self, pixels: int = 300) -> None:
         """Scroll down by specified pixels."""
@@ -94,39 +97,39 @@ class HumanBehavior:
             viewport_width = self.driver.execute_script("return window.innerWidth;")
             viewport_height = self.driver.execute_script("return window.innerHeight;")
 
-            x = random.randint(100, viewport_width - 100)
-            y = random.randint(100, viewport_height - 100)
+            x = random.randint(100, viewport_width - 100)  # noqa: S311
+            y = random.randint(100, viewport_height - 100)  # noqa: S311
 
             self.actions.move_by_offset(x, y).perform()
             self.delay(0.5, 1.5)
             self.actions.move_by_offset(-x, -y).perform()
         except Exception:
-            pass
+            logger.debug("Failed to perform random mouse movement")
 
     def _type_with_typo(self, element: WebElement, text: str) -> None:
         """Type text with a realistic typo."""
-        typo_pos = random.randint(1, len(text) - 1)
-        typo_char = random.choice("qwertyuiopasdfghjklzxcvbnm")
+        typo_pos = random.randint(1, len(text) - 1)  # noqa: S311
+        typo_char = random.choice("qwertyuiopasdfghjklzxcvbnm")  # noqa: S311
 
         for char in text[:typo_pos]:
             element.send_keys(char)
-            time.sleep(random.uniform(*self.config.typing_delay_range))
+            time.sleep(random.uniform(*self.config.typing_delay_range))  # noqa: S311
 
         element.send_keys(typo_char)
-        time.sleep(random.uniform(0.1, 0.3))
+        time.sleep(random.uniform(0.1, 0.3))  # noqa: S311
 
         element.send_keys(Keys.BACKSPACE)
-        time.sleep(random.uniform(0.1, 0.2))
+        time.sleep(random.uniform(0.1, 0.2))  # noqa: S311
 
         for char in text[typo_pos:]:
             element.send_keys(char)
-            time.sleep(random.uniform(*self.config.typing_delay_range))
+            time.sleep(random.uniform(*self.config.typing_delay_range))  # noqa: S311
 
     def _type_normally(self, element: WebElement, text: str) -> None:
         """Type text normally with realistic delays."""
         for char in text:
             element.send_keys(char)
-            time.sleep(random.uniform(*self.config.typing_delay_range))
+            time.sleep(random.uniform(*self.config.typing_delay_range))  # noqa: S311
 
     def _move_to_element_gradually(self, element: WebElement) -> None:
         """Move mouse to element with realistic path."""
@@ -136,8 +139,8 @@ class HumanBehavior:
             element_y = element_rect["y"] + element_rect["height"] // 2
 
             variance = self.config.mouse_move_variance
-            target_x = element_x + random.randint(-variance, variance)
-            target_y = element_y + random.randint(-variance, variance)
+            target_x = element_x + random.randint(-variance, variance)  # noqa: S311
+            target_y = element_y + random.randint(-variance, variance)  # noqa: S311
 
             self.actions.move_to_element_with_offset(
                 element, target_x - element_x, target_y - element_y
@@ -148,4 +151,4 @@ class HumanBehavior:
                 self.actions.move_to_element(element).perform()
                 self.delay(0.1, 0.3)
             except Exception:
-                pass
+                logger.debug("Failed to move to element gradually")

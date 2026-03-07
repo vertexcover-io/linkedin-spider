@@ -145,7 +145,7 @@ class ConversationScraper(BaseScraper):
                 and message_element
                 and message_element.text.strip()
             )
-        except:
+        except Exception:
             return False
 
     def _extract_conversation_item(self, item: WebElement) -> dict[str, Any] | None:
@@ -161,7 +161,9 @@ class ConversationScraper(BaseScraper):
             is_sponsored = self._is_sponsored(item)
             is_active = self._is_active(item)
             online_status = self._extract_online_status(item)
-
+        except Exception:
+            return None
+        else:
             return {
                 "participant_name": participant_name,
                 "profile_image_url": profile_image_url,
@@ -172,8 +174,6 @@ class ConversationScraper(BaseScraper):
                 "is_active": is_active,
                 "online_status": online_status,
             }
-        except Exception:
-            return None
 
     def _extract_participant_name(self, item: WebElement) -> str:
         try:
@@ -198,8 +198,9 @@ class ConversationScraper(BaseScraper):
                     return img_element.get_attribute("src")
                 except NoSuchElementException:
                     continue
-            return None
         except Exception:
+            return None
+        else:
             return None
 
     def _extract_profile_url(self, item: WebElement) -> str | None:
@@ -230,31 +231,33 @@ class ConversationScraper(BaseScraper):
     def _is_sponsored(self, item: WebElement) -> bool:
         try:
             item.find_element(By.CSS_SELECTOR, "span.msg-conversation-card__pill")
-            return True
         except NoSuchElementException:
             return False
+        else:
+            return True
 
     def _is_active(self, item: WebElement) -> bool:
         try:
             item.find_element(
                 By.CSS_SELECTOR, ".msg-conversations-container__convo-item-link--active"
             )
-            return True
         except NoSuchElementException:
             return False
+        else:
+            return True
 
     def _extract_online_status(self, item: WebElement) -> str | None:
         try:
             presence_indicator = item.find_element(By.CSS_SELECTOR, "div.presence-indicator")
             class_list = presence_indicator.get_attribute("class")
-
+        except NoSuchElementException:
+            return None
+        else:
             if "presence-indicator--is-reachable" in class_list:
                 return "online"
             elif "hidden" in class_list:
                 return "offline"
             return "unknown"
-        except NoSuchElementException:
-            return None
 
     def _navigate_to_conversation_by_name(self, participant_name: str) -> None:
         try:
@@ -281,12 +284,12 @@ class ConversationScraper(BaseScraper):
             )
 
             if not conversation_items:
-                raise Exception("No search results found")
+                raise Exception("No search results found")  # noqa: TRY002, TRY301
 
             best_match = self._find_best_search_match(conversation_items, participant_name)
 
             if not best_match:
-                raise Exception(f"No suitable match found for '{participant_name}'")
+                raise Exception(f"No suitable match found for '{participant_name}'")  # noqa: TRY002, TRY301
 
             conversation_item, similarity_score = best_match
             self.log_action("INFO", f"Found best match with {similarity_score:.2f} similarity")
@@ -445,7 +448,9 @@ class ConversationScraper(BaseScraper):
             is_premium = self._is_premium_user(event_listitem)
             is_verified = self._is_verified_user(event_listitem)
             pronouns = self._extract_pronouns(event_listitem)
-
+        except Exception:
+            return None
+        else:
             return {
                 "sender_name": sender_name,
                 "sender_profile_image": sender_profile_image,
@@ -459,8 +464,6 @@ class ConversationScraper(BaseScraper):
                 "is_verified": is_verified,
                 "pronouns": pronouns,
             }
-        except Exception:
-            return None
 
     def _extract_sender_name(self, event_element: WebElement) -> str:
         try:
@@ -570,9 +573,10 @@ class ConversationScraper(BaseScraper):
             event_element.find_element(
                 By.CSS_SELECTOR, "span.msg-s-event-with-indicator__sending-indicator--sent"
             )
-            return True
         except NoSuchElementException:
             return False
+        else:
+            return True
 
     def _extract_message_urn(self, event_element: WebElement) -> str | None:
         return event_element.get_attribute("data-event-urn")
@@ -580,16 +584,18 @@ class ConversationScraper(BaseScraper):
     def _is_premium_user(self, event_element: WebElement) -> bool:
         try:
             event_element.find_element(By.CSS_SELECTOR, "svg[aria-label='LinkedIn Premium']")
-            return True
         except NoSuchElementException:
             return False
+        else:
+            return True
 
     def _is_verified_user(self, event_element: WebElement) -> bool:
         try:
             event_element.find_element(By.CSS_SELECTOR, "svg[aria-label='LinkedIn Verified']")
-            return True
         except NoSuchElementException:
             return False
+        else:
+            return True
 
     def _extract_pronouns(self, event_element: WebElement) -> str | None:
         try:
@@ -598,8 +604,9 @@ class ConversationScraper(BaseScraper):
                 text = element.text.strip()
                 if text.startswith("(") and text.endswith(")"):
                     return text
-            return None
         except Exception:
+            return None
+        else:
             return None
 
     def scrape(self, *args, **kwargs) -> Any:

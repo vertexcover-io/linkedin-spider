@@ -1,4 +1,5 @@
 import contextlib
+import logging
 import re
 from typing import Any
 
@@ -9,6 +10,8 @@ from selenium.webdriver.support import expected_conditions as EC
 from selenium.webdriver.support.ui import WebDriverWait
 
 from linkedin_spider.scrapers.base import BaseScraper
+
+logger = logging.getLogger(__name__)
 
 
 class ConnectionScraper(BaseScraper):
@@ -60,11 +63,11 @@ class ConnectionScraper(BaseScraper):
                     break
 
             self.log_action("SUCCESS", f"Extracted {len(connections)} incoming connections")
-            return connections
-
         except Exception as e:
             self.log_action("ERROR", f"Error scraping incoming connections: {e!s}")
             return []
+        else:
+            return connections
 
     def scrape_outgoing_connections(self, max_results: int = 10) -> list[dict[str, Any]]:
         """Scrape outgoing connection requests."""
@@ -99,11 +102,11 @@ class ConnectionScraper(BaseScraper):
                     break
 
             self.log_action("SUCCESS", f"Extracted {len(connections)} outgoing connections")
-            return connections
-
         except Exception as e:
             self.log_action("ERROR", f"Error scraping outgoing connections: {e!s}")
             return []
+        else:
+            return connections
 
     def send_connection_request(self, profile_url: str, note: str | None = None) -> bool:
         """Send a connection request to a profile."""
@@ -143,9 +146,10 @@ class ConnectionScraper(BaseScraper):
     def _wait_for_page_load(self) -> bool:
         try:
             self.wait.until(lambda driver: driver.current_url != "about:blank")
-            return "linkedin.com/in/" in self.driver.current_url
         except TimeoutException:
             return False
+        else:
+            return "linkedin.com/in/" in self.driver.current_url
 
     def _click_connect_button(self) -> bool:
         direct_connect_selectors = [
@@ -170,6 +174,7 @@ class ConnectionScraper(BaseScraper):
                         button.click()
                         return True
             except (NoSuchElementException, Exception):
+                logger.debug("Failed to find connect button with selector: %s", selector)
                 continue
 
         return self._try_dropdown_connect()
@@ -200,6 +205,7 @@ class ConnectionScraper(BaseScraper):
                         return True
 
             except (NoSuchElementException, Exception):
+                logger.debug("Failed to find dropdown with selector: %s", selector)
                 continue
 
         return False
@@ -234,7 +240,7 @@ class ConnectionScraper(BaseScraper):
 
                         try:
                             connect_item.click()
-                        except:
+                        except Exception:
                             self.driver.execute_script("arguments[0].click();", connect_item)
 
                         self.human_behavior.delay(1, 2)
@@ -249,6 +255,7 @@ class ConnectionScraper(BaseScraper):
                         return True
 
             except (NoSuchElementException, Exception):
+                logger.debug("Failed to click dropdown connect with selector: %s", selector)
                 continue
 
         return False
@@ -266,9 +273,10 @@ class ConnectionScraper(BaseScraper):
             try:
                 modal = self.wait.until(EC.presence_of_element_located((By.CSS_SELECTOR, selector)))
                 self.wait.until(EC.visibility_of(modal))
-                return True
             except TimeoutException:
                 continue
+            else:
+                return True
 
         return False
 
@@ -342,11 +350,11 @@ class ConnectionScraper(BaseScraper):
             send_button.click()
 
             self.log_action("SUCCESS", "Connection request sent with note")
-            return True
-
         except Exception as e:
             self.log_action("ERROR", f"Failed to send with note: {e!s}")
             return False
+        else:
+            return True
 
     def _send_without_note(self) -> bool:
         try:
@@ -374,11 +382,11 @@ class ConnectionScraper(BaseScraper):
             send_button.click()
 
             self.log_action("SUCCESS", "Connection request sent without note")
-            return True
-
         except Exception as e:
             self.log_action("ERROR", f"Failed to send without note: {e!s}")
             return False
+        else:
+            return True
 
     def _extract_incoming_connection_data(self, container: WebElement) -> dict[str, str] | None:
         data = {}
@@ -387,7 +395,7 @@ class ConnectionScraper(BaseScraper):
             name_link = container.find_element(By.CSS_SELECTOR, "a[href*='/in/']:not([tabindex])")
             data["name"] = name_link.text.strip() or "N/A"
             data["profile_url"] = name_link.get_attribute("href") or "N/A"
-        except:
+        except Exception:
             data["name"] = "N/A"
             data["profile_url"] = "N/A"
 
@@ -412,8 +420,8 @@ class ConnectionScraper(BaseScraper):
                 ):
                     headline_text = txt
                     break
-        except:
-            pass
+        except Exception:
+            logger.debug("Failed to extract incoming connection headline")
         data["headline"] = headline_text
 
         time_text = "N/A"
@@ -426,8 +434,8 @@ class ConnectionScraper(BaseScraper):
                 ):
                     time_text = p.text.strip()
                     break
-        except:
-            pass
+        except Exception:
+            logger.debug("Failed to extract incoming connection time")
         data["time_sent"] = time_text
 
         mutual_connections_text = "N/A"
@@ -437,8 +445,8 @@ class ConnectionScraper(BaseScraper):
                 if "mutual connection" in txt.lower():
                     mutual_connections_text = txt
                     break
-        except:
-            pass
+        except Exception:
+            logger.debug("Failed to extract incoming mutual connections")
         data["mutual_connections"] = mutual_connections_text
 
         try:
@@ -459,13 +467,13 @@ class ConnectionScraper(BaseScraper):
                 span_element,
             )
             data["message"] = message_text or "N/A"
-        except:
+        except Exception:
             data["message"] = "N/A"
 
         try:
             img_element = container.find_element(By.CSS_SELECTOR, "img[alt*='profile picture']")
             data["image_url"] = img_element.get_attribute("src") or "N/A"
-        except:
+        except Exception:
             data["image_url"] = "N/A"
 
         return data if data.get("name") != "N/A" else None
@@ -477,7 +485,7 @@ class ConnectionScraper(BaseScraper):
             name_link = container.find_element(By.CSS_SELECTOR, "a[href*='/in/']:not([tabindex])")
             data["name"] = name_link.text.strip() or "N/A"
             data["profile_url"] = name_link.get_attribute("href") or "N/A"
-        except:
+        except Exception:
             data["name"] = "N/A"
             data["profile_url"] = "N/A"
 
@@ -493,7 +501,7 @@ class ConnectionScraper(BaseScraper):
                     headline_text = txt
                     break
             data["headline"] = headline_text
-        except:
+        except Exception:
             data["headline"] = "N/A"
 
         try:
@@ -508,7 +516,7 @@ class ConnectionScraper(BaseScraper):
                     time_text = p.text.strip()
                     break
             data["time_sent"] = time_text
-        except:
+        except Exception:
             data["time_sent"] = "N/A"
 
         try:
@@ -529,13 +537,13 @@ class ConnectionScraper(BaseScraper):
                 span_element,
             )
             data["message"] = message_text or "N/A"
-        except:
+        except Exception:
             data["message"] = "N/A"
 
         try:
             img_element = container.find_element(By.CSS_SELECTOR, "img[alt*='profile picture']")
             data["image_url"] = img_element.get_attribute("src") or "N/A"
-        except:
+        except Exception:
             data["image_url"] = "N/A"
 
         return data if data.get("name") != "N/A" else None
@@ -551,7 +559,7 @@ class ConnectionScraper(BaseScraper):
                 load_more_btn.click()
                 self.human_behavior.delay(2, 4)
                 return True
-        except:
+        except Exception:
             try:
                 load_more_btn = self.driver.find_element(
                     By.XPATH, "//button[contains(text(), 'Load more')]"
@@ -562,8 +570,8 @@ class ConnectionScraper(BaseScraper):
                     load_more_btn.click()
                     self.human_behavior.delay(2, 4)
                     return True
-            except:
-                pass
+            except Exception:
+                logger.debug("Failed to find load more button")
         return False
 
     def scrape(self, *args, **kwargs) -> Any:

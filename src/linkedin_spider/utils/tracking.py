@@ -1,4 +1,5 @@
 import contextlib
+import logging
 import random
 import time
 from typing import Any
@@ -8,6 +9,8 @@ from selenium.webdriver.common.by import By
 from selenium.webdriver.remote.webelement import WebElement
 from selenium.webdriver.support import expected_conditions as EC
 from selenium.webdriver.support.ui import WebDriverWait
+
+logger = logging.getLogger(__name__)
 
 
 class TrackingHandler:
@@ -32,13 +35,13 @@ class TrackingHandler:
 
     def simulate_natural_browsing(self) -> None:
         """Simulate natural browsing behavior."""
-        if random.random() < 0.7:
+        if random.random() < 0.7:  # noqa: S311
             self._random_scroll()
 
-        if random.random() < 0.3:
+        if random.random() < 0.3:  # noqa: S311
             self._random_mouse_movement()
 
-        if random.random() < 0.2:
+        if random.random() < 0.2:  # noqa: S311
             self._simulate_reading_pause()
 
     def wait_for_element_naturally(self, element: WebElement, min_duration: float = 0.3) -> bool:
@@ -50,15 +53,15 @@ class TrackingHandler:
             if self._simulate_element_interaction(element):
                 time.sleep(max(min_duration, 0.1))
                 return True
-
-            return False
         except TimeoutException:
+            return False
+        else:
             return False
 
     def _random_scroll(self) -> None:
         """Perform random scrolling."""
         try:
-            scroll_distance = random.randint(100, 400)
+            scroll_distance = random.randint(100, 400)  # noqa: S311
             can_scroll = self.driver.execute_script("""
                 return (window.pageYOffset || document.documentElement.scrollTop) <
                        (document.documentElement.scrollHeight - document.documentElement.clientHeight);
@@ -66,33 +69,34 @@ class TrackingHandler:
 
             if can_scroll:
                 self.driver.execute_script(f"window.scrollBy(0, {scroll_distance});")
-                time.sleep(random.uniform(0.5, 1.5))
+                time.sleep(random.uniform(0.5, 1.5))  # noqa: S311
         except Exception:
-            pass
+            logger.debug("Failed to perform random scroll")
 
     def _random_mouse_movement(self) -> None:
         """Perform random mouse movements."""
         try:
             elements = self.driver.find_elements(By.CSS_SELECTOR, "a, button, .clickable")
             if elements:
-                random_element = random.choice(elements[:10])
+                random_element = random.choice(elements[:10])  # noqa: S311
                 self.actions.move_to_element(random_element).perform()
-                time.sleep(random.uniform(0.2, 0.8))
+                time.sleep(random.uniform(0.2, 0.8))  # noqa: S311
         except Exception:
-            pass
+            logger.debug("Failed to perform random mouse movement")
 
     def _simulate_reading_pause(self) -> None:
         """Simulate reading pause."""
-        time.sleep(random.uniform(1.0, 3.0))
+        time.sleep(random.uniform(1.0, 3.0))  # noqa: S311
 
     def _simulate_element_interaction(self, element: WebElement) -> bool:
         """Simulate natural interaction with element."""
         try:
             self.actions.move_to_element(element).perform()
-            time.sleep(random.uniform(0.1, 0.3))
-            return True
+            time.sleep(random.uniform(0.1, 0.3))  # noqa: S311
         except Exception:
             return False
+        else:
+            return True
 
     def _get_webdriver_removal_script(self) -> str:
         """Script to remove webdriver property."""
@@ -141,12 +145,13 @@ class TrackingHandler:
                         time.sleep(0.05)
                         self.driver.execute_script("window.history.back();")
                         time.sleep(0.05)
-                except:
-                    pass
+                except Exception:
+                    logger.debug("Failed to handle search result tracking element")
 
                 processed_containers.append(container)
 
             except Exception:
+                logger.debug("Failed to process search result container")
                 continue
 
         return processed_containers

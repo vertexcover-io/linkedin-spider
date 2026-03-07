@@ -368,7 +368,7 @@ def _get_credentials(email: str | None, password: str | None, cookie: str | None
     credentials = {
         "email": email or os.getenv("LINKEDIN_EMAIL"),
         "password": password or os.getenv("LINKEDIN_PASSWORD"),
-        "cookie": cookie or os.getenv("LINKEDIN_COOKIE") or os.getenv("cookie"),
+        "cookie": cookie or os.getenv("LINKEDIN_COOKIE") or os.getenv("COOKIE"),
     }
 
     # Allow None values to let the scraper try saved cookies first

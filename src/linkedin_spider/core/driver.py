@@ -83,14 +83,14 @@ class DriverManager:
                     try:
                         self.driver = webdriver.Chrome(options=chrome_options)
                     except Exception as fallback_error:
-                        raise Exception(
+                        raise Exception(  # noqa: TRY002
                             f"Chrome driver initialization failed: {fallback_error}"
                         ) from e
             else:
                 try:
                     self.driver = webdriver.Chrome(options=chrome_options)
                 except Exception as fallback_error:
-                    raise Exception(f"Chrome driver initialization failed: {fallback_error}") from e
+                    raise Exception(f"Chrome driver initialization failed: {fallback_error}") from e  # noqa: TRY002
 
         self._configure_stealth_mode()
         self.wait = WebDriverWait(self.driver, self.config.page_load_timeout)
@@ -112,9 +112,10 @@ class DriverManager:
             cookies = self.driver.get_cookies()
             with open(self.cookies_file, "w") as f:
                 json.dump(cookies, f)
-            return True
         except Exception:
             return False
+        else:
+            return True
 
     def load_cookies(self) -> bool:
         """Load saved cookies into current session."""
@@ -128,20 +129,22 @@ class DriverManager:
             for cookie in cookies:
                 try:
                     self.driver.add_cookie(cookie)
-                except Exception:
+                except Exception:  # noqa: S112
                     continue
-            return True
         except Exception:
             return False
+        else:
+            return True
 
     def clear_saved_cookies(self) -> bool:
         """Clear saved cookies file."""
         if self.cookies_file and self.cookies_file.exists():
             try:
                 self.cookies_file.unlink()
-                return True
             except Exception:
                 return False
+            else:
+                return True
         return True
 
     def close(self) -> None:
@@ -270,7 +273,7 @@ class DriverManager:
                     "platform": platform_name,
                 },
             )
-        except Exception:
+        except Exception:  # noqa: S110
             pass
 
         if self.config.stealth_mode:
@@ -289,7 +292,7 @@ class DriverManager:
                     self.driver.execute_cdp_cmd(
                         "Emulation.setTimezoneOverride", {"timezoneId": "India/Kolkata"}
                     )
-                except Exception:
+                except Exception:  # noqa: S110
                     pass
 
             with contextlib.suppress(Exception):
@@ -315,7 +318,9 @@ class DriverManager:
                 return result.stdout.strip().split()[-1]
             else:
                 result = subprocess.run(
-                    ["google-chrome", "--version"], capture_output=True, text=True
+                    ["google-chrome", "--version"],  # noqa: S607
+                    capture_output=True,
+                    text=True,
                 )
                 return result.stdout.strip().split()[-1]
         except Exception:
@@ -383,10 +388,9 @@ class DriverManager:
                 if platform.system() != "Windows":
                     file_path.chmod(0o755)
                 return file_path
-
-            return None
-
         except Exception:
+            return None
+        else:
             return None
 
     def _find_existing_chromedriver(self) -> Path | None:
@@ -531,13 +535,13 @@ class DriverManager:
                         self.driver.set_page_load_timeout(original_timeout)
                         return False
 
-            except Exception as e:
-                logger.exception(f"Error checking authentication status: {e}")
+            except Exception:
+                logger.exception("Error checking authentication status")
                 self.driver.set_page_load_timeout(original_timeout)
                 return False
 
-        except Exception as e:
-            logger.exception(f"Cookie authentication failed with error: {e}")
+        except Exception:
+            logger.exception("Cookie authentication failed with error")
             if self.driver:
                 with contextlib.suppress(Exception):
                     self.driver.set_page_load_timeout(original_timeout or 30)
@@ -565,11 +569,12 @@ class DriverManager:
         try:
             # Get li_at cookie which is the main LinkedIn session cookie
             cookie = self.driver.get_cookie("li_at")
-            if cookie and cookie.get("value"):
-                return f"li_at={cookie['value']}"
-            return None
         except Exception as e:
             logger.warning(f"Failed to capture session cookie: {e}")
+            return None
+        else:
+            if cookie and cookie.get("value"):
+                return f"li_at={cookie['value']}"
             return None
 
     @staticmethod

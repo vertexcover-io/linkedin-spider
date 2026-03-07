@@ -55,7 +55,7 @@ class AuthManager:
                 return True
             else:
                 logger.error("Cookie from parameter failed")
-                raise Exception("Provided li_at cookie is invalid or expired")
+                raise Exception("Provided li_at cookie is invalid or expired")  # noqa: TRY002
 
         # Priority 2: Check if already authenticated with saved cookies
         logger.info("Checking for saved cookies in profile directory...")
@@ -73,11 +73,11 @@ class AuthManager:
                 return True
             else:
                 logger.error("Login with provided credentials failed")
-                raise Exception("Login failed with provided credentials")
+                raise Exception("Login failed with provided credentials")  # noqa: TRY002
 
         # No authentication method available
         logger.error("No valid authentication method found")
-        raise Exception(
+        raise Exception(  # noqa: TRY002
             "Authentication required. Saved cookies not found or invalid. Please provide either:\n"
             "  - li_at cookie (--cookie parameter)\n"
             "  - Email and password (--email and --password parameters)\n"
@@ -151,16 +151,15 @@ class AuthManager:
         try:
             # Use the improved login_with_cookie method from driver_manager
             success = self.driver_manager.login_with_cookie(cookie)
-
+        except Exception:
+            logger.exception("Cookie authentication exception")
+            return False
+        else:
             if success:
                 self.human_behavior.delay(1, 2)
                 self._handle_welcome_page()
                 return self._is_authenticated()
 
-            return False
-
-        except Exception as e:
-            logger.exception(f"Cookie authentication exception: {e}")
             return False
 
     def _login_with_credentials(self, email: str, password: str) -> bool:
@@ -202,8 +201,8 @@ class AuthManager:
 
             return self._is_authenticated()
 
-        except Exception as e:
-            logger.exception(f"Credential login exception: {e}")
+        except Exception:
+            logger.exception("Credential login exception")
             return False
 
     def _is_challenge_present(self) -> bool:
@@ -357,10 +356,9 @@ class AuthManager:
                             self.human_behavior.click(first_button)
                             self.human_behavior.delay(1, 2)
                             return True
-                except Exception:
+                except Exception:  # noqa: S112
                     continue
-
-            return True
-
         except Exception:
+            return True
+        else:
             return True
