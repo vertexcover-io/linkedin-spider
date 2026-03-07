@@ -218,33 +218,24 @@ class LinkedinSpider:
     def scrape_search_results(
         self, query: str, max_results: int = 5, filters: dict | None = None
     ) -> list[dict[str, Any]]:
-        """Scrape search results with fallback to anonymous data."""
-        profile_urls = self.search_profiles(query, max_results, filters)
+        """Return profile data extracted from the search results page.
 
-        if not profile_urls:
+        This returns name/headline/location/profile_url directly from search
+        results without navigating to each individual profile page.
+        """
+        search_results = self.search_profiles(query, max_results, filters)
+
+        if not search_results:
             anonymous_data = self.extract_search_data()
-            if anonymous_data:
-                return anonymous_data
-            return []
+            return anonymous_data if anonymous_data else []
 
         profiles_data = []
-
-        for i, profile_info in enumerate(profile_urls, 1):
-            if i > 1:
-                self.human_behavior.delay(2, 5)
-
-            profile_url = profile_info.get("profile_url")
-            if self._is_valid_profile_url(profile_url):
-                profile_data = self.scrape_profile(profile_url)
-                if profile_data:
-                    profiles_data.append(profile_data)
-            else:
-                limited_data = self._create_limited_profile_data(profile_info)
-                if limited_data:
-                    profiles_data.append(limited_data)
-
-            if i < len(profile_urls):
-                self.tracking_handler.simulate_natural_browsing()
+        for profile_info in search_results:
+            data = self._create_limited_profile_data(profile_info)
+            if data:
+                # Preserve profile_url from search results
+                data["profile_url"] = profile_info.get("profile_url", "N/A")
+                profiles_data.append(data)
 
         return profiles_data
 
