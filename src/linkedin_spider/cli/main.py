@@ -5,6 +5,7 @@ import csv
 import json
 import os
 import sys
+from dataclasses import dataclass
 from pathlib import Path
 from typing import Annotated
 
@@ -12,12 +13,40 @@ from cyclopts import App, Parameter
 from dotenv import load_dotenv
 
 from linkedin_spider import LinkedinSpider, ScraperConfig
+from linkedin_spider.core.logging import setup_logging_from_env
 
 load_dotenv()
 
 app = App(
     name="linkedin-spider", help="LinkedIn Spider - Extract LinkedIn profile and company data."
 )
+
+
+@dataclass
+class LogConfig:
+    """Shared logging configuration for CLI commands."""
+
+    log_level: Annotated[
+        str | None,
+        Parameter(name=["--log-level"], help="Log level (DEBUG, INFO, WARNING, ERROR)"),
+    ] = None
+    log_json: Annotated[
+        bool | None,
+        Parameter(name=["--log-json"], help="Output logs as JSON"),
+    ] = None
+    log_file: Annotated[
+        str | None,
+        Parameter(name=["--log-file"], help="Log file path"),
+    ] = None
+
+
+def _configure_logging(config: LogConfig) -> None:
+    """Configure logging from CLI flags with env var fallback."""
+    setup_logging_from_env(
+        level=config.log_level,
+        json_output=config.log_json,
+        log_file=config.log_file,
+    )
 
 
 @app.command
@@ -39,9 +68,11 @@ def search(
     cookie: Annotated[
         str | None, Parameter(help="LinkedIn li_at cookie for authentication")
     ] = None,
-):
+    log: LogConfig = LogConfig(),
+) -> None:
     """Search for LinkedIn profiles."""
     try:
+        _configure_logging(log)
         config = _create_config(headless)
         credentials = _get_credentials(email, password, cookie)
         custom_user_agent = _get_user_agent(user_agent)
@@ -86,9 +117,11 @@ def profile(
     cookie: Annotated[
         str | None, Parameter(help="LinkedIn li_at cookie for authentication")
     ] = None,
-):
+    log: LogConfig = LogConfig(),
+) -> None:
     """Scrape a specific LinkedIn profile."""
     try:
+        _configure_logging(log)
         config = _create_config(headless)
         credentials = _get_credentials(email, password, cookie)
         custom_user_agent = _get_user_agent(user_agent)
@@ -137,9 +170,11 @@ def company(
     cookie: Annotated[
         str | None, Parameter(help="LinkedIn li_at cookie for authentication")
     ] = None,
-):
+    log: LogConfig = LogConfig(),
+) -> None:
     """Scrape a LinkedIn company page."""
     try:
+        _configure_logging(log)
         config = _create_config(headless)
         credentials = _get_credentials(email, password, cookie)
         custom_user_agent = _get_user_agent(user_agent)
@@ -190,9 +225,11 @@ def connections(
     cookie: Annotated[
         str | None, Parameter(help="LinkedIn li_at cookie for authentication")
     ] = None,
-):
+    log: LogConfig = LogConfig(),
+) -> None:
     """Scrape incoming connection requests."""
     try:
+        _configure_logging(log)
         config = _create_config(headless)
         credentials = _get_credentials(email, password, cookie)
         custom_user_agent = _get_user_agent(user_agent)
@@ -259,9 +296,11 @@ def search_posts(
     cookie: Annotated[
         str | None, Parameter(help="LinkedIn li_at cookie for authentication")
     ] = None,
-):
+    log: LogConfig = LogConfig(),
+) -> None:
     """Search for LinkedIn posts by keywords."""
     try:
+        _configure_logging(log)
         config = _create_config(headless)
         credentials = _get_credentials(email, password, cookie)
         custom_user_agent = _get_user_agent(user_agent)
@@ -315,9 +354,11 @@ def _get_user_agent(user_agent: str | None) -> str | None:
     return user_agent or os.getenv("USER_AGENT")
 
 
-def _get_credentials(email: str | None, password: str | None, cookie: str | None) -> dict:
+def _get_credentials(
+    email: str | None, password: str | None, cookie: str | None
+) -> dict[str, str | None]:
     """Get authentication credentials from arguments or environment."""
-    credentials = {
+    credentials: dict[str, str | None] = {
         "email": email or os.getenv("LINKEDIN_EMAIL"),
         "password": password or os.getenv("LINKEDIN_PASSWORD"),
         "cookie": cookie or os.getenv("COOKIE"),
@@ -334,7 +375,7 @@ def _get_credentials(email: str | None, password: str | None, cookie: str | None
     return credentials
 
 
-def _save_results(data, output_path: str) -> None:
+def _save_results(data: object, output_path: str) -> None:
     """Save results to JSON or CSV file based on extension."""
     output_file = Path(output_path)
     output_file.parent.mkdir(parents=True, exist_ok=True)
@@ -345,37 +386,41 @@ def _save_results(data, output_path: str) -> None:
         _save_as_json(data, output_file)
 
 
-def _save_as_json(data, output_file: Path) -> None:
+def _save_as_json(data: object, output_file: Path) -> None:
     """Save data as JSON file."""
     with open(output_file, "w", encoding="utf-8") as f:
         json.dump(data, f, indent=2, ensure_ascii=False)
 
 
-def _save_as_csv(data, output_file: Path) -> None:
+def _save_as_csv(data: object, output_file: Path) -> None:
     """Save data as CSV file."""
     if not data:
         return
+
+    rows: list[dict[str, object]]
+    fieldnames: list[str]
 
     if isinstance(data, list):
         if not data[0]:
             return
 
         if isinstance(data[0], dict):
-            fieldnames = data[0].keys()
+            fieldnames = list(data[0].keys())
+            rows = data
         else:
             fieldnames = ["value"]
-            data = [{"value": item} for item in data]
+            rows = [{"value": item} for item in data]
     elif isinstance(data, dict):
-        fieldnames = data.keys()
-        data = [data]
+        fieldnames = list(data.keys())
+        rows = [data]
     else:
         fieldnames = ["value"]
-        data = [{"value": data}]
+        rows = [{"value": data}]
 
     with open(output_file, "w", newline="", encoding="utf-8") as f:
         writer = csv.DictWriter(f, fieldnames=fieldnames)
         writer.writeheader()
-        writer.writerows(data)
+        writer.writerows(rows)
 
 
 if __name__ == "__main__":

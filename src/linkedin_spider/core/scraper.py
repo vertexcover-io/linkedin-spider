@@ -7,6 +7,7 @@ from typing import Any
 from linkedin_spider.core.auth import AuthManager
 from linkedin_spider.core.config import ScraperConfig
 from linkedin_spider.core.driver import DriverManager
+from linkedin_spider.core.logging import set_logging_context
 from linkedin_spider.scrapers.company import CompanyScraper
 from linkedin_spider.scrapers.connections import ConnectionScraper
 from linkedin_spider.scrapers.conversations import ConversationScraper
@@ -92,6 +93,9 @@ class LinkedinSpider:
         self.driver = self.driver_manager.setup_driver()
         self.wait = self.driver_manager.wait
         self.actions = self.driver_manager.actions
+
+        # Set logging context so all scrapers pick up the session_id
+        set_logging_context(session_id=self.driver_manager.session_id)
 
         self.human_behavior = HumanBehavior(self.driver, self.wait, self.actions, self.config)
         self.tracking_handler = TrackingHandler(self.driver, self.wait, self.actions)

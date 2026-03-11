@@ -3,10 +3,19 @@ import logging
 from selenium.webdriver.chrome.webdriver import WebDriver
 from selenium.webdriver.support.ui import WebDriverWait
 
+from linkedin_spider.core.logging import SpiderLoggerAdapter
 from linkedin_spider.utils.human_behavior import HumanBehavior
 from linkedin_spider.utils.tracking import TrackingHandler
 
 logger = logging.getLogger(__name__)
+
+_ACTION_LEVELS: dict[str, int] = {
+    "DEBUG": logging.DEBUG,
+    "INFO": logging.INFO,
+    "SUCCESS": logging.INFO,
+    "WARNING": logging.WARNING,
+    "ERROR": logging.ERROR,
+}
 
 
 class BaseScraper:
@@ -23,6 +32,7 @@ class BaseScraper:
         self.wait = wait
         self.human_behavior = human_behavior
         self.tracking_handler = tracking_handler
+        self._logger = SpiderLoggerAdapter(logger, {"scraper": self.__class__.__name__})
 
     def navigate_to_url(self, url: str) -> bool:
         """Navigate to URL and wait for page load."""
@@ -47,5 +57,6 @@ class BaseScraper:
             return True
 
     def log_action(self, action: str, details: str = "") -> None:
-        """Log scraper action."""
-        logger.info(f"[{self.__class__.__name__}] {action}: {details}")
+        """Log scraper action at the appropriate level."""
+        level = _ACTION_LEVELS.get(action.upper(), logging.INFO)
+        self._logger.log(level, "[%s] %s: %s", self.__class__.__name__, action, details)
