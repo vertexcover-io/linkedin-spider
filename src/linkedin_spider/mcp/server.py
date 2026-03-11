@@ -9,15 +9,10 @@ from dotenv import load_dotenv
 from fastmcp import FastMCP
 
 from linkedin_spider import LinkedinSpider, ScraperConfig
+from linkedin_spider.core.logging import setup_logging_from_env
 
 load_dotenv()
 
-logging.basicConfig(
-    level=logging.INFO,
-    format="%(asctime)s - %(name)s - %(levelname)s - %(message)s",
-    stream=sys.stderr,
-)
-logging.getLogger("urllib3.connectionpool").setLevel(logging.ERROR)
 logger = logging.getLogger(__name__)
 
 cli_app = App(name="linkedin-spider-mcp", help="LinkedIn Spider MCP Server")
@@ -308,6 +303,8 @@ def serve(
     ] = None,
 ):
     """Start the LinkedIn MCP server."""
+    setup_logging_from_env()
+
     logger.info(f"Starting LinkedIn MCP {transport.upper()} Server...")
 
     try:
