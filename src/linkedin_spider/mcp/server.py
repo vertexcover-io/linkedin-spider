@@ -1,7 +1,9 @@
+import contextlib
 import json
 import logging
 import os
 import sys
+from collections.abc import Generator
 from typing import Annotated
 
 from cyclopts import App, Parameter
@@ -25,6 +27,23 @@ mcp_app = FastMCP("linkedin-spider")
 
 _scraper_instance = None
 
+# Whether we're running in stdio mode (needs stdout protection)
+_stdio_mode = False
+
+
+@contextlib.contextmanager
+def _suppress_stdout() -> Generator[None, None, None]:
+    """Redirect stdout to stderr to prevent stray output from corrupting MCP JSON-RPC."""
+    if not _stdio_mode:
+        yield
+        return
+    original = sys.stdout
+    sys.stdout = sys.stderr
+    try:
+        yield
+    finally:
+        sys.stdout = original
+
 
 def get_scraper():
     global _scraper_instance
@@ -40,7 +59,8 @@ async def scrape_profile(profile_url: str) -> str:
 
     try:
         scraper = get_scraper()
-        result = scraper.scrape_profile(profile_url)
+        with _suppress_stdout():
+            result = scraper.scrape_profile(profile_url)
 
         if result:
             return json.dumps(result, indent=2, ensure_ascii=False)
@@ -82,7 +102,10 @@ async def search_profiles(
         if followers_of:
             filters["followers_of"] = followers_of
 
-        results = scraper.scrape_search_results(query, max_results, filters if filters else None)
+        with _suppress_stdout():
+            results = scraper.scrape_search_results(
+                query, max_results, filters if filters else None
+            )
 
         if results:
             return f"profiles:\n{json.dumps(results, indent=2, ensure_ascii=False)}"
@@ -97,7 +120,8 @@ async def search_profiles(
 async def get_session_status() -> str:
     try:
         scraper = get_scraper()
-        is_active = scraper.keep_alive()
+        with _suppress_stdout():
+            is_active = scraper.keep_alive()
         status = "Active" if is_active else "Inactive"
     except Exception as e:
         return f"Error checking session status: {e!s}"
@@ -110,7 +134,8 @@ async def reset_session() -> str:
     global _scraper_instance
     try:
         if _scraper_instance:
-            _scraper_instance.close()
+            with _suppress_stdout():
+                _scraper_instance.close()
             _scraper_instance = None
     except Exception as e:
         return f"Error resetting session: {e!s}"
@@ -122,7 +147,8 @@ async def reset_session() -> str:
 async def scrape_incoming_connections(max_results: int = 10) -> str:
     try:
         scraper = get_scraper()
-        results = scraper.scrape_incoming_connections(max_results)
+        with _suppress_stdout():
+            results = scraper.scrape_incoming_connections(max_results)
 
         if results:
             return f"incoming_connections:\n{json.dumps(results, indent=2, ensure_ascii=False)}"
@@ -137,7 +163,8 @@ async def scrape_incoming_connections(max_results: int = 10) -> str:
 async def scrape_outgoing_connections(max_results: int = 10) -> str:
     try:
         scraper = get_scraper()
-        results = scraper.scrape_outgoing_connections(max_results)
+        with _suppress_stdout():
+            results = scraper.scrape_outgoing_connections(max_results)
 
         if results:
             return f"outgoing_connections:\n{json.dumps(results, indent=2, ensure_ascii=False)}"
@@ -155,7 +182,8 @@ async def scrape_company(company_url: str) -> str:
 
     try:
         scraper = get_scraper()
-        result = scraper.scrape_company(company_url)
+        with _suppress_stdout():
+            result = scraper.scrape_company(company_url)
 
         if result:
             return f"company_profile:\n{json.dumps(result, indent=2, ensure_ascii=False)}"
@@ -191,9 +219,10 @@ async def search_posts(
 
     try:
         scraper = get_scraper()
-        results = scraper.search_posts(
-            keywords, max_results, scroll_pause, max_comments, date_posted
-        )
+        with _suppress_stdout():
+            results = scraper.search_posts(
+                keywords, max_results, scroll_pause, max_comments, date_posted
+            )
 
         if results:
             return f"posts:\n{json.dumps(results, indent=2, ensure_ascii=False)}"
@@ -208,7 +237,8 @@ async def search_posts(
 async def scrape_conversations_list(max_results: int = 10) -> str:
     try:
         scraper = get_scraper()
-        conversations = scraper.scrape_conversations_list(max_results)
+        with _suppress_stdout():
+            conversations = scraper.scrape_conversations_list(max_results)
 
         if conversations:
             return f"conversations_list:\n{json.dumps(conversations, indent=2, ensure_ascii=False)}"
@@ -223,7 +253,8 @@ async def scrape_conversations_list(max_results: int = 10) -> str:
 async def scrape_conversation(participant_name: str | None = None) -> str:
     try:
         scraper = get_scraper()
-        conversation_data = scraper.scrape_conversation_messages(participant_name)
+        with _suppress_stdout():
+            conversation_data = scraper.scrape_conversation_messages(participant_name)
 
         if conversation_data and conversation_data.get("messages"):
             return f"conversation:\n{json.dumps(conversation_data, indent=2, ensure_ascii=False)}"
@@ -242,7 +273,8 @@ async def send_connection_request(profile_url: str, note: str | None = None) -> 
 
     try:
         scraper = get_scraper()
-        success = scraper.send_connection_request(profile_url, note)
+        with _suppress_stdout():
+            success = scraper.send_connection_request(profile_url, note)
 
         result = {
             "profile_url": profile_url,
@@ -308,16 +340,21 @@ def serve(
     ] = None,
 ):
     """Start the LinkedIn MCP server."""
+    global _stdio_mode
     logger.info(f"Starting LinkedIn MCP {transport.upper()} Server...")
 
-    try:
-        logger.info("Initializing LinkedIn scraper...")
-        _initialize_scraper(email, password, cookie, headless, user_agent, proxy)
-        logger.info("LinkedIn scraper initialized successfully")
-    except Exception:
-        logger.exception("Failed to initialize scraper")
-        logger.exception("Cannot start server without valid LinkedIn credentials")
-        sys.exit(1)
+    if transport == "stdio":
+        _stdio_mode = True
+
+    with _suppress_stdout():
+        try:
+            logger.info("Initializing LinkedIn scraper...")
+            _initialize_scraper(email, password, cookie, headless, user_agent, proxy)
+            logger.info("LinkedIn scraper initialized successfully")
+        except Exception:
+            logger.exception("Failed to initialize scraper")
+            logger.exception("Cannot start server without valid LinkedIn credentials")
+            sys.exit(1)
 
     logger.info(
         f"FastMCP {transport.upper()} Server initialized with tools: scrape_profile, search_profiles, scrape_company, "
