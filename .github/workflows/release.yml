@@ -65,26 +65,13 @@ jobs:
 
       - name: Generate changelog
         id: changelog
-        uses: mikepenz/release-changelog-builder-action@v6
+        uses: requarks/changelog-action@v1
         with:
-          configuration: ".github/changelog_config.json"
-          toTag: ${{ github.ref_name }}
-          token: ${{ secrets.GITHUB_TOKEN }}
-
-      - name: Update CHANGELOG.md
-        run: |
-          # Create new changelog entry
-          echo "## [${{ github.ref_name }}] - $(date +%Y-%m-%d)" > temp_changelog.md
-          echo "" >> temp_changelog.md
-          echo "${{ steps.changelog.outputs.changelog }}" >> temp_changelog.md
-          echo "" >> temp_changelog.md
-
-          # Prepend new entry to existing changelog (after header)
-          head -n 7 CHANGELOG.md > new_changelog.md
-          cat temp_changelog.md >> new_changelog.md
-          tail -n +8 CHANGELOG.md >> new_changelog.md
-          mv new_changelog.md CHANGELOG.md
-          rm temp_changelog.md
+          token: ${{ github.token }}
+          tag: ${{ github.ref_name }}
+          excludeTypes: ""
+          useGitmojis: true
+          includeInvalidCommits: true
 
       - name: Commit updated CHANGELOG.md
         run: |
@@ -102,7 +89,7 @@ jobs:
         with:
           tag_name: ${{ github.ref_name }}
           name: Release ${{ steps.tag_version.outputs.VERSION }}
-          body: ${{ steps.changelog.outputs.changelog }}
+          body: ${{ steps.changelog.outputs.changes }}
           files: |
             dist/*
           draft: false
