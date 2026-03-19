@@ -4,6 +4,8 @@ import logging
 import os
 import sys
 from collections.abc import Generator
+from datetime import datetime, timezone
+from pathlib import Path
 from typing import Annotated
 
 from cyclopts import App, Parameter
@@ -14,12 +16,30 @@ from linkedin_spider import LinkedinSpider, ScraperConfig
 
 load_dotenv()
 
-logging.basicConfig(
-    level=logging.INFO,
-    format="%(asctime)s - %(name)s - %(levelname)s - %(message)s",
-    stream=sys.stderr,
-)
-logging.getLogger("urllib3.connectionpool").setLevel(logging.ERROR)
+
+def _setup_logging() -> Path:
+    """Configure logging with both stderr and per-session file handler."""
+    log_dir = Path.home() / ".linkedin_spider_profiles" / "logs"
+    log_dir.mkdir(parents=True, exist_ok=True)
+
+    timestamp = datetime.now(tz=timezone.utc).strftime("%Y-%m-%d_%H-%M-%S")
+    log_file = log_dir / f"mcp_{timestamp}.log"
+
+    formatter = logging.Formatter("%(asctime)s - %(name)s - %(levelname)s - %(message)s")
+
+    stderr_handler = logging.StreamHandler(sys.stderr)
+    stderr_handler.setFormatter(formatter)
+
+    file_handler = logging.FileHandler(log_file, encoding="utf-8")
+    file_handler.setFormatter(formatter)
+
+    logging.basicConfig(level=logging.INFO, handlers=[stderr_handler, file_handler])
+    logging.getLogger("urllib3.connectionpool").setLevel(logging.ERROR)
+
+    return log_file
+
+
+_log_file = _setup_logging()
 logger = logging.getLogger(__name__)
 
 cli_app = App(name="linkedin-spider-mcp", help="LinkedIn Spider MCP Server")
@@ -57,6 +77,7 @@ async def scrape_profile(profile_url: str) -> str:
     if not profile_url:
         raise ValueError("profile_url is required")
 
+    logger.info("Tool call: scrape_profile(profile_url=%s)", profile_url)
     try:
         scraper = get_scraper()
         with _suppress_stdout():
@@ -65,9 +86,11 @@ async def scrape_profile(profile_url: str) -> str:
         if result:
             return json.dumps(result, indent=2, ensure_ascii=False)
         else:
+            logger.warning("scrape_profile returned no data for %s", profile_url)
             return f"Failed to scrape profile: {profile_url}"
 
     except Exception as e:
+        logger.exception("scrape_profile failed for %s", profile_url)
         return f"Error scraping profile {profile_url}: {e!s}"
 
 
@@ -85,6 +108,7 @@ async def search_profiles(
     if not query:
         raise ValueError("query is required")
 
+    logger.info("Tool call: search_profiles(query=%s, max_results=%d)", query, max_results)
     try:
         scraper = get_scraper()
 
@@ -108,70 +132,87 @@ async def search_profiles(
             )
 
         if results:
+            logger.info("search_profiles returned %d results", len(results))
             return f"profiles:\n{json.dumps(results, indent=2, ensure_ascii=False)}"
         else:
+            logger.warning("search_profiles returned no results for query=%s", query)
             return f"No profiles found for query: {query}"
 
     except Exception as e:
+        logger.exception("search_profiles failed for query=%s", query)
         return f"Error searching profiles for '{query}': {e!s}"
 
 
 @mcp_app.tool()
 async def get_session_status() -> str:
+    logger.info("Tool call: get_session_status()")
     try:
         scraper = get_scraper()
         with _suppress_stdout():
             is_active = scraper.keep_alive()
         status = "Active" if is_active else "Inactive"
     except Exception as e:
+        logger.exception("get_session_status failed")
         return f"Error checking session status: {e!s}"
     else:
+        logger.info("Session status: %s", status)
         return f"LinkedIn browser session status: {status}"
 
 
 @mcp_app.tool()
 async def reset_session() -> str:
     global _scraper_instance
+    logger.info("Tool call: reset_session()")
     try:
         if _scraper_instance:
             with _suppress_stdout():
                 _scraper_instance.close()
             _scraper_instance = None
     except Exception as e:
+        logger.exception("reset_session failed")
         return f"Error resetting session: {e!s}"
     else:
+        logger.info("Session reset successfully")
         return "LinkedIn browser session has been reset successfully"
 
 
 @mcp_app.tool()
 async def scrape_incoming_connections(max_results: int = 10) -> str:
+    logger.info("Tool call: scrape_incoming_connections(max_results=%d)", max_results)
     try:
         scraper = get_scraper()
         with _suppress_stdout():
             results = scraper.scrape_incoming_connections(max_results)
 
         if results:
+            logger.info("scrape_incoming_connections returned %d results", len(results))
             return f"incoming_connections:\n{json.dumps(results, indent=2, ensure_ascii=False)}"
         else:
+            logger.warning("scrape_incoming_connections returned no results")
             return "No incoming connection requests found"
 
     except Exception as e:
+        logger.exception("scrape_incoming_connections failed")
         return f"Error scraping incoming connections: {e!s}"
 
 
 @mcp_app.tool()
 async def scrape_outgoing_connections(max_results: int = 10) -> str:
+    logger.info("Tool call: scrape_outgoing_connections(max_results=%d)", max_results)
     try:
         scraper = get_scraper()
         with _suppress_stdout():
             results = scraper.scrape_outgoing_connections(max_results)
 
         if results:
+            logger.info("scrape_outgoing_connections returned %d results", len(results))
             return f"outgoing_connections:\n{json.dumps(results, indent=2, ensure_ascii=False)}"
         else:
+            logger.warning("scrape_outgoing_connections returned no results")
             return "No outgoing connection requests found"
 
     except Exception as e:
+        logger.exception("scrape_outgoing_connections failed")
         return f"Error scraping outgoing connections: {e!s}"
 
 
@@ -180,6 +221,7 @@ async def scrape_company(company_url: str) -> str:
     if not company_url:
         raise ValueError("company_url is required")
 
+    logger.info("Tool call: scrape_company(company_url=%s)", company_url)
     try:
         scraper = get_scraper()
         with _suppress_stdout():
@@ -188,9 +230,11 @@ async def scrape_company(company_url: str) -> str:
         if result:
             return f"company_profile:\n{json.dumps(result, indent=2, ensure_ascii=False)}"
         else:
+            logger.warning("scrape_company returned no data for %s", company_url)
             return f"Failed to scrape company: {company_url}"
 
     except Exception as e:
+        logger.exception("scrape_company failed for %s", company_url)
         return f"Error scraping company {company_url}: {e!s}"
 
 
@@ -217,6 +261,7 @@ async def search_posts(
     if not keywords:
         raise ValueError("keywords is required")
 
+    logger.info("Tool call: search_posts(keywords=%s, max_results=%d)", keywords, max_results)
     try:
         scraper = get_scraper()
         with _suppress_stdout():
@@ -225,44 +270,56 @@ async def search_posts(
             )
 
         if results:
+            logger.info("search_posts returned %d results", len(results))
             return f"posts:\n{json.dumps(results, indent=2, ensure_ascii=False)}"
         else:
+            logger.warning("search_posts returned no results for keywords=%s", keywords)
             return f"No posts found for keywords: {keywords}"
 
     except Exception as e:
+        logger.exception("search_posts failed for keywords=%s", keywords)
         return f"Error searching posts for '{keywords}': {e!s}"
 
 
 @mcp_app.tool()
 async def scrape_conversations_list(max_results: int = 10) -> str:
+    logger.info("Tool call: scrape_conversations_list(max_results=%d)", max_results)
     try:
         scraper = get_scraper()
         with _suppress_stdout():
             conversations = scraper.scrape_conversations_list(max_results)
 
         if conversations:
+            logger.info("scrape_conversations_list returned %d conversations", len(conversations))
             return f"conversations_list:\n{json.dumps(conversations, indent=2, ensure_ascii=False)}"
         else:
+            logger.warning("scrape_conversations_list returned no results")
             return "No conversations found"
 
     except Exception as e:
+        logger.exception("scrape_conversations_list failed")
         return f"Error scraping conversations list: {e!s}"
 
 
 @mcp_app.tool()
 async def scrape_conversation(participant_name: str | None = None) -> str:
+    logger.info("Tool call: scrape_conversation(participant_name=%s)", participant_name)
     try:
         scraper = get_scraper()
         with _suppress_stdout():
             conversation_data = scraper.scrape_conversation_messages(participant_name)
 
         if conversation_data and conversation_data.get("messages"):
+            msg_count = len(conversation_data["messages"])
+            logger.info("scrape_conversation returned %d messages", msg_count)
             return f"conversation:\n{json.dumps(conversation_data, indent=2, ensure_ascii=False)}"
         else:
             identifier = participant_name or "current"
+            logger.warning("scrape_conversation returned no messages for %s", identifier)
             return f"No messages found for conversation: {identifier}"
 
     except Exception as e:
+        logger.exception("scrape_conversation failed for %s", participant_name)
         return f"Error scraping conversation: {e!s}"
 
 
@@ -271,6 +328,7 @@ async def send_connection_request(profile_url: str, note: str | None = None) -> 
     if not profile_url:
         raise ValueError("profile_url is required")
 
+    logger.info("Tool call: send_connection_request(profile_url=%s)", profile_url)
     try:
         scraper = get_scraper()
         with _suppress_stdout():
@@ -285,9 +343,13 @@ async def send_connection_request(profile_url: str, note: str | None = None) -> 
             else "Failed to send connection request",
         }
 
+        if not success:
+            logger.warning("send_connection_request failed for %s", profile_url)
+
         return f"connection_request_result:\n{json.dumps(result, indent=2, ensure_ascii=False)}"
 
     except Exception as e:
+        logger.exception("send_connection_request failed for %s", profile_url)
         return f"Error sending connection request to {profile_url}: {e!s}"
 
 
@@ -311,6 +373,8 @@ async def send_message(
     if not message or not message.strip():
         raise ValueError("message is required")
 
+    target = participant_name or profile_url or "unknown"
+    logger.info("Tool call: send_message(target=%s, dry_run=%s)", target, dry_run)
     try:
         scraper = get_scraper()
         success = scraper.send_message(message, participant_name, profile_url, dry_run=dry_run)
@@ -329,9 +393,13 @@ async def send_message(
             "status": status,
         }
 
+        if not success:
+            logger.warning("send_message failed for target=%s", target)
+
         return f"send_message_result:\n{json.dumps(result, indent=2, ensure_ascii=False)}"
 
     except Exception as e:
+        logger.exception("send_message failed for target=%s", target)
         return f"Error sending message: {e!s}"
 
 
@@ -377,7 +445,8 @@ def serve(
 ):
     """Start the LinkedIn MCP server."""
     global _stdio_mode
-    logger.info(f"Starting LinkedIn MCP {transport.upper()} Server...")
+    logger.info("Log file: %s", _log_file)
+    logger.info("Starting LinkedIn MCP %s Server...", transport.upper())
 
     if transport == "stdio":
         _stdio_mode = True
