@@ -1,8 +1,9 @@
+import contextlib
 import difflib
 import re
 from typing import Any
 
-from selenium.common.exceptions import NoSuchElementException
+from selenium.common.exceptions import NoSuchElementException, TimeoutException
 from selenium.webdriver.common.by import By
 from selenium.webdriver.remote.webelement import WebElement
 from selenium.webdriver.support import expected_conditions as EC
@@ -609,6 +610,261 @@ class ConversationScraper(BaseScraper):
         else:
             return None
 
-    def scrape(self, *args, **kwargs) -> Any:
+    def send_message(
+        self,
+        message: str,
+        participant_name: str | None = None,
+        profile_url: str | None = None,
+        dry_run: bool = False,
+    ) -> bool:
+        """Send a message in an existing or new conversation.
+
+        When dry_run=True, navigates and verifies UI elements are present
+        but does not type or send the message.
+        """
+        if not message or not message.strip():
+            self.log_action("ERROR", "Message cannot be empty")
+            return False
+
+        if participant_name and profile_url:
+            self.log_action("ERROR", "Provide either participant_name or profile_url, not both")
+            return False
+
+        if not participant_name and not profile_url:
+            self.log_action("ERROR", "Either participant_name or profile_url is required")
+            return False
+
+        try:
+            if participant_name:
+                return self._send_to_existing_conversation(participant_name, message, dry_run)
+            assert profile_url is not None  # validated above
+            return self._send_to_new_conversation(profile_url, message, dry_run)
+        except Exception as e:
+            self.log_action("ERROR", f"Failed to send message: {e!s}")
+            return False
+
+    def _is_valid_linkedin_url(self, url: str) -> bool:
+        if not url or not isinstance(url, str) or url == "N/A":
+            return False
+        return bool(re.match(r"^https?://(www\.)?linkedin\.com/in/", url))
+
+    def _send_to_existing_conversation(
+        self, participant_name: str, message: str, dry_run: bool = False
+    ) -> bool:
+        prefix = "[DRY RUN] " if dry_run else ""
+        self.log_action(
+            "INFO", f"{prefix}Sending message to existing conversation: {participant_name}"
+        )
+        self._navigate_to_conversation_by_name(participant_name)
+        return self._type_and_send_message(message, dry_run)
+
+    def _send_to_new_conversation(
+        self, profile_url: str, message: str, dry_run: bool = False
+    ) -> bool:
+        if not self._is_valid_linkedin_url(profile_url):
+            self.log_action("ERROR", f"Invalid profile URL: {profile_url}")
+            return False
+
+        prefix = "[DRY RUN] " if dry_run else ""
+        self.log_action("INFO", f"{prefix}Sending new message via profile: {profile_url}")
+
+        self.navigate_to_url(profile_url)
+        self.human_behavior.delay(2, 3)
+
+        # Extract compose URL from Message link and navigate directly
+        compose_url = self._get_compose_url()
+        if compose_url:
+            self.log_action("INFO", f"Navigating to compose URL: {compose_url}")
+            self.driver.get(compose_url)
+            self.human_behavior.delay(3, 5)
+        else:
+            # Fallback: click the Message button
+            if not self._click_message_button():
+                self.log_action("ERROR", "Message button not found on profile")
+                return False
+
+            # Wait for messaging page or overlay to load
+            with contextlib.suppress(TimeoutException):
+                self.wait.until(lambda d: "/messaging/" in d.current_url)
+            self.human_behavior.delay(2, 3)
+
+        if not self._wait_for_message_input():
+            self.log_action(
+                "ERROR",
+                f"Message input did not appear. URL: {self.driver.current_url}",
+            )
+            return False
+
+        return self._type_and_send_message(message, dry_run)
+
+    def _get_compose_url(self) -> str | None:
+        """Extract the messaging compose URL from a Message link on the profile page."""
+        try:
+            link = self.driver.find_element(By.CSS_SELECTOR, "a[href*='/messaging/compose/']")
+            href = link.get_attribute("href")
+            if href and "/messaging/" in href:
+                return href
+        except NoSuchElementException:
+            pass
+        return None
+
+    def _click_message_button(self) -> bool:
+        # CSS selectors — href-based is most stable
+        css_selectors = [
+            "a[href*='/messaging/compose/']",
+            "button[aria-label*='Message']",
+            "a[aria-label*='Message']",
+        ]
+
+        for selector in css_selectors:
+            try:
+                elements = self.driver.find_elements(By.CSS_SELECTOR, selector)
+                for button in elements:
+                    if button.is_displayed() and button.is_enabled():
+                        self.log_action("INFO", f"Clicking message button: {selector}")
+                        self.human_behavior.delay(0.5, 1.0)
+                        button.click()
+                        self.human_behavior.delay(2, 3)
+                        return True
+            except NoSuchElementException:
+                continue
+
+        # XPath fallback — match by visible text content
+        xpath_selectors = [
+            "//a[normalize-space(.)='Message']",
+            "//button[normalize-space(.)='Message']",
+        ]
+
+        for xpath in xpath_selectors:
+            try:
+                elements = self.driver.find_elements(By.XPATH, xpath)
+                for button in elements:
+                    if button.is_displayed() and button.is_enabled():
+                        self.log_action("INFO", f"Clicking message button: {xpath}")
+                        self.human_behavior.delay(0.5, 1.0)
+                        button.click()
+                        self.human_behavior.delay(2, 3)
+                        return True
+            except NoSuchElementException:
+                continue
+
+        return False
+
+    def _wait_for_message_input(self) -> bool:
+        css_selectors = [
+            "div.msg-form__contenteditable",
+            "div[role='textbox']",
+            "div[contenteditable='true']",
+        ]
+
+        for selector in css_selectors:
+            try:
+                self.wait.until(EC.presence_of_element_located((By.CSS_SELECTOR, selector)))
+            except TimeoutException:
+                continue
+            else:
+                return True
+
+        # JS fallback for lazy-rendered or dynamically injected inputs
+        try:
+            self.wait.until(
+                lambda d: d.execute_script(
+                    "return document.querySelector('[contenteditable=true]')"
+                )
+            )
+        except TimeoutException:
+            return False
+        else:
+            return True
+
+    def _find_message_input(self) -> WebElement | None:
+        css_selectors = [
+            "div.msg-form__contenteditable",
+            "div[role='textbox']",
+            "div[contenteditable='true']",
+        ]
+
+        for selector in css_selectors:
+            try:
+                return self.wait.until(EC.element_to_be_clickable((By.CSS_SELECTOR, selector)))
+            except TimeoutException:
+                continue
+
+        # JS fallback
+        element = self.driver.execute_script(
+            "return document.querySelector('[contenteditable=true]')"
+        )
+        return element if element else None
+
+    def _find_send_button(self) -> WebElement | None:
+        css_selectors = [
+            "button.msg-form__send-button",
+            "button[aria-label='Send']",
+            "button[type='submit']",
+        ]
+
+        for selector in css_selectors:
+            try:
+                return self.wait.until(EC.presence_of_element_located((By.CSS_SELECTOR, selector)))
+            except TimeoutException:
+                continue
+
+        # XPath fallback — match by text
+        xpath_selectors = [
+            "//button[normalize-space(.)='Send']",
+            "//button[contains(., 'Send')]",
+        ]
+
+        for xpath in xpath_selectors:
+            try:
+                btn = self.driver.find_element(By.XPATH, xpath)
+                if btn.is_displayed():
+                    return btn
+            except NoSuchElementException:
+                continue
+
+        # JS fallback — find button near contenteditable
+        element: WebElement | None = self.driver.execute_script("""
+            var editable = document.querySelector('[contenteditable=true]');
+            if (!editable) return null;
+            var parent = editable.parentElement;
+            for (var i = 0; i < 8 && parent; i++) {
+                var buttons = parent.querySelectorAll('button');
+                for (var j = 0; j < buttons.length; j++) {
+                    var text = buttons[j].textContent.trim().toLowerCase();
+                    if (text === 'send' || text.includes('send')) return buttons[j];
+                }
+                parent = parent.parentElement;
+            }
+            return null;
+        """)
+        return element
+
+    def _type_and_send_message(self, message: str, dry_run: bool = False) -> bool:
+        input_element = self._find_message_input()
+        if not input_element:
+            self.log_action("ERROR", "Could not find message input")
+            return False
+
+        send_button = self._find_send_button()
+        if not send_button:
+            self.log_action("ERROR", "Could not find send button")
+            return False
+
+        if dry_run:
+            self.log_action("INFO", "Dry run: message input and send button verified")
+            return True
+
+        input_element.click()
+        self.human_behavior.delay(0.3, 0.5)
+        self.human_behavior.type_text(input_element, message, clear_first=False)
+        self.human_behavior.delay(0.5, 1.0)
+
+        send_button.click()
+        self.human_behavior.delay(1, 2)
+        self.log_action("INFO", f"Message sent: {message[:50]}")
+        return True
+
+    def scrape(self, *args: Any, **kwargs: Any) -> Any:
         """Main scraping implementation."""
         return self.scrape_conversations_list(*args, **kwargs)

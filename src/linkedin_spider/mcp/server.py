@@ -291,6 +291,50 @@ async def send_connection_request(profile_url: str, note: str | None = None) -> 
         return f"Error sending connection request to {profile_url}: {e!s}"
 
 
+@mcp_app.tool()
+async def send_message(
+    message: str,
+    participant_name: str | None = None,
+    profile_url: str | None = None,
+    dry_run: bool = False,
+) -> str:
+    """Send a message in a LinkedIn conversation.
+
+    Args:
+        message: The message text to send
+        participant_name: Name of existing conversation participant (for existing conversations)
+        profile_url: LinkedIn profile URL (for starting new conversations)
+        dry_run: If True, verify message input and send button exist but do not send
+
+    Provide either participant_name or profile_url, not both.
+    """
+    if not message or not message.strip():
+        raise ValueError("message is required")
+
+    try:
+        scraper = get_scraper()
+        success = scraper.send_message(message, participant_name, profile_url, dry_run=dry_run)
+
+        if dry_run:
+            status = "Dry run verification passed" if success else "Dry run verification failed"
+        else:
+            status = "Message sent successfully" if success else "Failed to send message"
+
+        result = {
+            "message": message[:100],
+            "participant_name": participant_name,
+            "profile_url": profile_url,
+            "dry_run": dry_run,
+            "success": success,
+            "status": status,
+        }
+
+        return f"send_message_result:\n{json.dumps(result, indent=2, ensure_ascii=False)}"
+
+    except Exception as e:
+        return f"Error sending message: {e!s}"
+
+
 @cli_app.command
 def serve(
     transport: Annotated[
@@ -359,7 +403,7 @@ def serve(
     logger.info(
         f"FastMCP {transport.upper()} Server initialized with tools: scrape_profile, search_profiles, scrape_company, "
         "search_posts, scrape_incoming_connections, scrape_outgoing_connections, scrape_conversations_list, "
-        "scrape_conversation, send_connection_request, get_session_status, reset_session"
+        "scrape_conversation, send_connection_request, send_message, get_session_status, reset_session"
     )
 
     if transport in ["sse", "http", "streamable-http"]:

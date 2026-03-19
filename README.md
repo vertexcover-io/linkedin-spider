@@ -16,7 +16,7 @@ A modern LinkedIn scraping library with built-in anti-detection, available as a 
 - **Profile scraping** with experience, education, skills, and contact details
 - **Company scraping** with industry, size, specialties, and more
 - **Connection management** — retrieve and send connection requests
-- **Conversations** — list threads and read message history
+- **Conversations** — list threads, read message history, and send messages
 - **Proxy support** — route traffic through HTTP or SOCKS5 proxies
 - **Anti-detection** — human-like behavior simulation, stealth mode, session persistence
 
@@ -73,7 +73,11 @@ What has OpenAI been posting about recently? https://www.linkedin.com/company/op
 Show me my pending connection requests and summarize who they are
 ```
 
-It provides 11 tools:
+```
+Send a message to John Doe saying "Thanks for connecting!"
+```
+
+It provides 12 tools:
 
 | Tool                          | Description                                                             |
 | ----------------------------- | ----------------------------------------------------------------------- |
@@ -86,6 +90,7 @@ It provides 11 tools:
 | `send_connection_request`     | Send a connection request with optional note                            |
 | `scrape_conversations_list`   | List messaging conversations                                            |
 | `scrape_conversation`         | Read messages from a conversation                                       |
+| `send_message`                | Send a message in an existing or new conversation                       |
 | `get_session_status`          | Check if the browser session is active                                  |
 | `reset_session`               | Close and reset the browser session                                     |
 
@@ -241,6 +246,7 @@ scraper.send_connection_request("https://linkedin.com/in/someone", note="Hi!")
 # Conversations
 threads = scraper.scrape_conversations_list(max_results=10)
 messages = scraper.scrape_conversation_messages("John Doe")
+scraper.send_message("Thanks for connecting!", participant_name="John Doe")
 
 # Always clean up
 scraper.close()

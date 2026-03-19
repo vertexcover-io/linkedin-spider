@@ -34,6 +34,7 @@ EXPECTED_TOOL_NAMES = {
     "scrape_conversations_list",
     "scrape_conversation",
     "send_connection_request",
+    "send_message",
 }
 
 
@@ -77,7 +78,7 @@ def _tool_param_default(tool: Any, param: str) -> Any:
 
 
 class TestToolRegistration:
-    async def test_exactly_11_tools_registered(self, mcp_client: Client) -> None:
+    async def test_exactly_12_tools_registered(self, mcp_client: Client) -> None:
         tools = await mcp_client.list_tools()
         tool_names = {t.name for t in tools}
         assert tool_names == EXPECTED_TOOL_NAMES
@@ -149,6 +150,15 @@ class TestToolRegistration:
         assert "profile_url" in _tool_required_params(tool)
         assert "note" in _tool_param_names(tool)
 
+    async def test_send_message_params(self, mcp_client: Client) -> None:
+        tools = await mcp_client.list_tools()
+        tool = _find_tool(tools, "send_message")
+        assert "message" in _tool_required_params(tool)
+        assert "participant_name" in _tool_param_names(tool)
+        assert "profile_url" in _tool_param_names(tool)
+        assert "dry_run" in _tool_param_names(tool)
+        assert _tool_param_default(tool, "dry_run") is False
+
 
 # ── Phase 1: Parameter Validation ─────────────────────────────────────────
 
@@ -173,6 +183,10 @@ class TestParameterValidation:
     async def test_send_connection_request_empty_url(self, mcp_client: Client) -> None:
         with pytest.raises(ToolError, match="profile_url is required"):
             await mcp_client.call_tool("send_connection_request", {"profile_url": ""})
+
+    async def test_send_message_empty_message(self, mcp_client: Client) -> None:
+        with pytest.raises(ToolError, match="message is required"):
+            await mcp_client.call_tool("send_message", {"message": ""})
 
 
 # ── Phase 1: Uninitialized Scraper ────────────────────────────────────────
@@ -228,6 +242,12 @@ class TestUninitializedScraper:
 
     async def test_send_connection_request_returns_error(self, mcp_client: Client) -> None:
         result = await mcp_client.call_tool("send_connection_request", {"profile_url": PROFILE_URL})
+        assert "Scraper not initialized" in _result_text(result)
+
+    async def test_send_message_returns_error(self, mcp_client: Client) -> None:
+        result = await mcp_client.call_tool(
+            "send_message", {"message": "test", "participant_name": "John"}
+        )
         assert "Scraper not initialized" in _result_text(result)
 
     async def test_reset_session_succeeds_when_uninitialized(self, mcp_client: Client) -> None:

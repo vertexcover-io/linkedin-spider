@@ -230,6 +230,56 @@ def test_scrape_outgoing_connections(spider: LinkedinSpider) -> None:
     assert expected_keys.issubset(conn.keys()), f"Missing keys: {expected_keys - conn.keys()}"
 
 
+# ── send message (dry run) ────────────────────────────────────────────────
+
+
+@pytest.mark.integration
+def test_send_message_dry_run_existing_conversation(spider: LinkedinSpider) -> None:
+    conversations = spider.scrape_conversations_list(max_results=1)
+    if not conversations:
+        pytest.skip("No conversations available for dry-run test")
+
+    participant_name = conversations[0]["participant_name"]
+    result = spider.send_message(
+        message="dry run test message",
+        participant_name=participant_name,
+        dry_run=True,
+    )
+    assert result is True, f"Dry run failed for existing conversation with {participant_name}"
+
+
+@pytest.mark.integration
+@pytest.mark.parametrize("profile_url", PROFILE_URLS[:1], ids=["new-conversation"])
+def test_send_message_dry_run_new_conversation(spider: LinkedinSpider, profile_url: str) -> None:
+    result = spider.send_message(
+        message="dry run test message",
+        profile_url=profile_url,
+        dry_run=True,
+    )
+    assert result is True, f"Dry run failed for new conversation with {profile_url}"
+
+
+@pytest.mark.integration
+def test_send_message_dry_run_empty_message(spider: LinkedinSpider) -> None:
+    result = spider.send_message(
+        message="",
+        participant_name="test",
+        dry_run=True,
+    )
+    assert result is False
+
+
+@pytest.mark.integration
+def test_send_message_dry_run_both_targets(spider: LinkedinSpider) -> None:
+    result = spider.send_message(
+        message="test",
+        participant_name="test",
+        profile_url="https://www.linkedin.com/in/test/",
+        dry_run=True,
+    )
+    assert result is False
+
+
 # ── keep alive ────────────────────────────────────────────────────────────
 
 

@@ -207,6 +207,18 @@ class LinkedinSpider:
         """Scrape messages from a conversation."""
         return self.conversation_scraper.scrape_conversation_messages(participant_name)
 
+    def send_message(
+        self,
+        message: str,
+        participant_name: str | None = None,
+        profile_url: str | None = None,
+        dry_run: bool = False,
+    ) -> bool:
+        """Send a message in an existing or new conversation."""
+        return self.conversation_scraper.send_message(
+            message, participant_name, profile_url, dry_run=dry_run
+        )
+
     def send_connection_request(self, profile_url: str, note: str | None = None) -> bool:
         """Send a connection request to a profile."""
         return self.connection_scraper.send_connection_request(profile_url, note)
