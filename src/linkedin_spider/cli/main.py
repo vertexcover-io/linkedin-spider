@@ -3,6 +3,7 @@
 
 import csv
 import json
+import logging
 import os
 import sys
 from pathlib import Path
@@ -14,6 +15,13 @@ from dotenv import load_dotenv
 from linkedin_spider import LinkedinSpider, ScraperConfig
 
 load_dotenv()
+
+logging.basicConfig(
+    level=logging.INFO,
+    format="%(asctime)s - %(name)s - %(levelname)s - %(message)s",
+    stream=sys.stderr,
+)
+logging.getLogger("urllib3.connectionpool").setLevel(logging.ERROR)
 
 app = App(
     name="linkedin-spider", help="LinkedIn Spider - Extract LinkedIn profile and company data."
