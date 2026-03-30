@@ -21,8 +21,6 @@ class LinkedinSpider:
 
     def __init__(
         self,
-        email: str | None = None,
-        password: str | None = None,
         li_at_cookie: str | None = None,
         config: ScraperConfig | None = None,
         user_agent: str | None = None,
@@ -46,9 +44,7 @@ class LinkedinSpider:
         self.company_scraper = None
         self.conversation_scraper = None
 
-        self._credentials = {"email": email, "password": password, "li_at_cookie": li_at_cookie}
-        # if li_at_cookie:
-        #     self.driver_manager.clear_saved_cookies()
+        self._li_at_cookie = li_at_cookie
 
         self._initialize()
         self._setup_cleanup_handlers()
@@ -97,7 +93,7 @@ class LinkedinSpider:
         self.tracking_handler = TrackingHandler(self.driver, self.wait, self.actions)
 
         self.auth_manager = AuthManager(
-            self.driver_manager, self.human_behavior, **self._credentials
+            self.driver_manager, self.human_behavior, li_at_cookie=self._li_at_cookie
         )
 
         self._initialize_scrapers()
