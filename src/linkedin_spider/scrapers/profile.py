@@ -195,9 +195,14 @@ class ProfileScraper(BaseScraper):
             return "N/A"
         try:
             ps = profile_section.find_elements(By.TAG_NAME, "p")
+            # Skip the first substantive p (it's the headline), then find location
+            skipped_headline = False
             for p in ps:
                 text = p.text.strip()
                 if not text or len(text) <= 3:
+                    continue
+                if not skipped_headline:
+                    skipped_headline = True
                     continue
                 if self.pattern_detector.is_likely_location(text):
                     return text
@@ -238,9 +243,9 @@ class ProfileScraper(BaseScraper):
             return []
 
     def _extract_experience_via_js(self, exp_section: WebElement) -> list[dict[str, str]]:
-        """Extract experience items using JS to find company-logo-link grouped containers."""
+        """Extract experience items using company logo links as anchors for grouping."""
         company_links = exp_section.find_elements(
-            By.CSS_SELECTOR, 'a[data-view-name="experience-company-logo-click"]'
+            By.CSS_SELECTOR, "a[href*='/company/']"
         )
 
         if not company_links:
@@ -248,12 +253,21 @@ class ProfileScraper(BaseScraper):
             return self._extract_experience_from_ps(exp_section)
 
         experience_list: list[dict[str, str]] = []
-        for link in company_links[:8]:
+        seen_container_ids: set[str] = set()
+        for link in company_links[:16]:
             try:
-                # Walk up from the link to find the container that holds one experience entry
                 container = self._find_item_container(link, exp_section)
                 if not container:
                     continue
+
+                # Deduplicate using JS-assigned unique ID
+                container_id = self.driver.execute_script(
+                    "if (!arguments[0]._spiderId) arguments[0]._spiderId = Math.random().toString(36); return arguments[0]._spiderId;",
+                    container,
+                )
+                if container_id in seen_container_ids:
+                    continue
+                seen_container_ids.add(container_id)
 
                 ps = [
                     p.text.strip()
@@ -334,6 +348,36 @@ class ProfileScraper(BaseScraper):
             return []
 
         try:
+            # Try grouping by school links first (more reliable)
+            school_links = edu_section.find_elements(
+                By.CSS_SELECTOR, "a[href*='/school/']"
+            )
+            if school_links:
+                seen_container_ids: set[str] = set()
+                education_list: list[dict[str, str]] = []
+                for link in school_links[:10]:
+                    container = self._find_item_container(link, edu_section)
+                    if not container:
+                        continue
+                    container_id = self.driver.execute_script(
+                        "if (!arguments[0]._spiderId) arguments[0]._spiderId = Math.random().toString(36); return arguments[0]._spiderId;",
+                        container,
+                    )
+                    if container_id in seen_container_ids:
+                        continue
+                    seen_container_ids.add(container_id)
+                    ps = [
+                        p.text.strip()
+                        for p in container.find_elements(By.TAG_NAME, "p")
+                        if p.text.strip()
+                    ]
+                    if ps:
+                        edu = self._parse_single_education(ps)
+                        if edu["school"] != "N/A":
+                            education_list.append(edu)
+                return education_list[:5]
+
+            # Fallback: parse all p tags
             ps = [
                 p.text.strip()
                 for p in edu_section.find_elements(By.TAG_NAME, "p")
@@ -343,6 +387,29 @@ class ProfileScraper(BaseScraper):
         except Exception as e:
             self.log_action("ERROR", f"Error scraping education: {e!s}")
             return []
+
+    def _parse_single_education(self, ps: list[str]) -> dict[str, str]:
+        """Parse p-tags from a single education container into a structured dict."""
+        edu = self._empty_education()
+        if not ps:
+            return edu
+
+        edu["school"] = ps[0]
+        for text in ps[1:]:
+            if self._is_year_range(text):
+                edu["duration"] = text
+            elif self._is_grade(text):
+                edu["grade"] = text
+            elif text.lower().startswith("activities and societies"):
+                continue
+            elif self.pattern_detector.is_likely_degree(text):
+                if "," in text:
+                    parts = text.split(",", 1)
+                    edu["degree"] = parts[0].strip()
+                    edu["field_of_study"] = parts[1].strip()
+                else:
+                    edu["degree"] = text
+        return edu
 
     def _parse_education_ps(self, ps: list[str]) -> list[dict[str, str]]:
         """Parse education p-tags into structured items.
@@ -368,6 +435,9 @@ class ProfileScraper(BaseScraper):
                     current["field_of_study"] = parts[1].strip()
                 else:
                     current["degree"] = text
+            elif text.lower().startswith("activities and societies"):
+                # Supplementary info — attach to current item, skip
+                continue
             else:
                 # Not a date/degree/grade → likely a school name → starts a new item
                 if current["school"] != "N/A":

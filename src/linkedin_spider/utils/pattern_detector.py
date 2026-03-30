@@ -17,6 +17,8 @@ class PatternDetector:
             r"(?i)\b(m\.?\s*(a|sc?|e|tech?|com?|ba|bs|be))\b",
             r"(?i)\b(diploma|certificate|degree)\b",
             r"(?i)\b(engineering|computer\s+science|business|management|arts|science)\b",
+            r"(?i)^class\s+\d+",
+            r"(?i)\b(mba|mca|bca|bba|llb|mbbs|md)\b",
         ]
 
         self.exclude_patterns = [
