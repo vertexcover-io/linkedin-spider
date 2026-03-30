@@ -15,17 +15,14 @@ from linkedin_spider import LinkedinSpider
 
 def main():
     """Search for LinkedIn posts and save results."""
-    # Get credentials from environment variables
-    email = os.getenv("LINKEDIN_EMAIL")
-    password = os.getenv("LINKEDIN_PASSWORD")
-    li_at_cookie = os.getenv("LINKEDIN_LI_AT_COOKIE")
+    # Option 1: Use saved cookies (run `linkedin-spider-cli login` first)
+    # Option 2: Use li_at cookie directly
+    cookie = os.getenv("LINKEDIN_COOKIE")
 
     # Initialize the scraper
     print("Initializing LinkedIn scraper...")
     scraper = LinkedinSpider(
-        email=email,
-        password=password,
-        li_at_cookie=li_at_cookie,
+        li_at_cookie=cookie,
     )
 
     try:
