@@ -317,6 +317,70 @@ class AuthManager:
 
         return any(indicator in page_source for indicator in auth_indicators)
 
+    def _manual_login(self, timeout: int = 300) -> bool:
+        """
+        Open LinkedIn login page and wait for the user to complete login manually.
+
+        This handles 2FA, captcha, and any other challenges transparently since
+        the user completes them in the real browser window.
+
+        Args:
+            timeout: Maximum seconds to wait for login completion (default: 5 minutes)
+
+        Returns:
+            bool: True if user successfully logged in within the timeout
+        """
+        import time as _time
+
+        try:
+            logger.info(
+                "Opening LinkedIn login page. Please log in manually in the browser window. "
+                "You have %d seconds to complete login (including 2FA/captcha).",
+                timeout,
+            )
+            self.driver.get("https://www.linkedin.com/login")
+            self.human_behavior.delay(2, 3)
+
+            start = _time.monotonic()
+            poll_interval = 2
+
+            while (_time.monotonic() - start) < timeout:
+                try:
+                    current_url = self.driver.current_url.lower()
+
+                    # Still on login/challenge page — keep waiting
+                    if any(
+                        indicator in current_url
+                        for indicator in [
+                            "login",
+                            "signin",
+                            "challenge",
+                            "checkpoint",
+                            "verification",
+                        ]
+                    ):
+                        _time.sleep(poll_interval)
+                        continue
+
+                    # Might be authenticated — verify with feed check
+                    if self._is_authenticated():
+                        logger.info("Manual login successful!")
+                        return True
+
+                    # URL changed but not clearly authenticated — keep polling
+                    _time.sleep(poll_interval)
+
+                except Exception:
+                    logger.debug("Error during login poll, retrying...")
+                    _time.sleep(poll_interval)
+
+            logger.warning("Manual login timed out after %d seconds", timeout)
+            return False
+
+        except Exception:
+            logger.exception("Manual login failed with error")
+            return False
+
     def _handle_welcome_page(self) -> bool:
         """Handle welcome back page with profile selection."""
         try:
