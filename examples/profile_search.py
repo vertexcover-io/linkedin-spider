@@ -2,6 +2,8 @@
 Example: Profile Search
 """
 
+import os
+
 from linkedin_spider import LinkedinSpider, ScraperConfig
 
 
@@ -9,12 +11,10 @@ def search_profiles_example():
     """Example of searching for LinkedIn profiles with filters."""
 
     config = ScraperConfig(headless=False, page_load_timeout=30)
-    # Use either cookie or email and pass.
-    # Authentication is usually done once as the session is stored for the further requests.
+    # Option 1: Use saved cookies (run `linkedin-spider-cli login` first)
+    # Option 2: Use li_at cookie directly
     scraper = LinkedinSpider(
-        email="your_email@example.com",
-        password="your_password",  # noqa: S106
-        # li_at_cookie="your_cookie"
+        li_at_cookie=os.getenv("LINKEDIN_COOKIE"),
         config=config,
     )
 
