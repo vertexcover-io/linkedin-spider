@@ -25,6 +25,9 @@ class TestManualLogin:
         """Manual login should navigate to LinkedIn login page."""
         self.driver.current_url = "https://www.linkedin.com/feed/"
         self.driver.page_source = "<html>global-nav__me messaging</html>"
+        self.driver.get_cookies.return_value = [
+            {"name": "li_at", "value": "abc123", "domain": ".linkedin.com"},
+        ]
 
         result = self.auth._manual_login(timeout=5)
         assert result is True
@@ -53,6 +56,9 @@ class TestManualLogin:
 
         type(self.driver).current_url = PropertyMock(side_effect=mock_current_url)
         self.driver.page_source = "<html>global-nav__me notifications</html>"
+        self.driver.get_cookies.return_value = [
+            {"name": "li_at", "value": "abc123", "domain": ".linkedin.com"},
+        ]
 
         result = self.auth._manual_login(timeout=10)
         assert result is True

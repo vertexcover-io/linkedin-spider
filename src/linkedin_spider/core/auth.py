@@ -86,7 +86,7 @@ class AuthManager:
                 return False
 
             if "feed" in current_url or "mynetwork" in current_url:
-                return self._quick_feed_check()
+                return self._quick_feed_check() and self._validate_session_cookies()
 
             self.driver.get("https://www.linkedin.com")
             self.human_behavior.delay(1, 2)
@@ -96,6 +96,7 @@ class AuthManager:
                 "login" not in current_url
                 and "signin" not in current_url
                 and self._quick_feed_check()
+                and self._validate_session_cookies()
             )
         except Exception:
             return False
@@ -114,6 +115,21 @@ class AuthManager:
             ]
             return any(indicator in page_source for indicator in auth_indicators)
         except Exception:
+            return False
+
+    def _validate_session_cookies(self) -> bool:
+        """Validate that essential LinkedIn session cookies are present."""
+        try:
+            cookies = self.driver.get_cookies()
+            cookie_names = {c["name"] for c in cookies}
+
+            if "li_at" not in cookie_names:
+                logger.warning("Missing essential cookie: li_at")
+                return False
+
+            return True
+        except Exception:
+            logger.debug("Failed to validate session cookies")
             return False
 
     def _try_saved_cookies(self) -> bool:
