@@ -71,23 +71,25 @@ class SearchScraper(BaseScraper):
         try:
             results = []
             containers = self._find_elements_safe(
-                By.CSS_SELECTOR, "div[data-view-name='people-search-result']"
+                By.CSS_SELECTOR, "div[role='listitem']"
             )
 
             for container in containers[:10]:
                 try:
-                    name_elem = self._find_element_in_parent(
-                        container, By.CSS_SELECTOR, 'a[data-view-name="search-result-lockup-title"]'
-                    )
-                    name = self._extract_text_safe(name_elem) if name_elem else "Anonymous"
+                    name = "Anonymous"
+                    for link in container.find_elements(By.CSS_SELECTOR, "a[href*='/in/']"):
+                        text = self._extract_text_safe(link)
+                        if text:
+                            name = text
+                            break
 
-                    headline_elements = container.find_elements(By.CSS_SELECTOR, "p")
+                    p_elements = container.find_elements(By.CSS_SELECTOR, "p")
                     headline = (
-                        headline_elements[1].text.strip() if len(headline_elements) > 1 else "N/A"
+                        p_elements[1].text.strip() if len(p_elements) > 1 else "N/A"
                     )
 
                     location = (
-                        headline_elements[2].text.strip() if len(headline_elements) > 2 else "N/A"
+                        p_elements[2].text.strip() if len(p_elements) > 2 else "N/A"
                     )
 
                     result = {
@@ -160,28 +162,32 @@ class SearchScraper(BaseScraper):
 
             results = []
             containers = self._find_elements_safe(
-                By.CSS_SELECTOR, "div[data-view-name='people-search-result']"
+                By.CSS_SELECTOR, "div[role='listitem']"
             )
 
             for i, container in enumerate(containers[:max_results]):
                 try:
-                    name_elem = self._find_element_in_parent(
-                        container, By.CSS_SELECTOR, 'a[data-view-name="search-result-lockup-title"]'
-                    )
-                    if name_elem:
-                        name = self._extract_text_safe(name_elem)
-                        href = self._extract_attribute_safe(name_elem, "href")
-                        profile_url = href if href and "linkedin.com/in/" in href else "N/A"
-                    else:
-                        name = "N/A"
-                        profile_url = "N/A"
+                    # Find name and profile URL from the first /in/ link
+                    name = "N/A"
+                    profile_url = "N/A"
+                    for link in container.find_elements(By.CSS_SELECTOR, "a[href*='/in/']"):
+                        href = self._extract_attribute_safe(link, "href")
+                        text = self._extract_text_safe(link)
+                        if href and "/in/" in href and text:
+                            name = text
+                            profile_url = href.split("?")[0]
+                            if not profile_url.startswith("http"):
+                                profile_url = f"https://www.linkedin.com{profile_url}"
+                            break
 
-                    headline_elements = container.find_elements(By.CSS_SELECTOR, "p")
+                    # Headline and location are in <p> elements
+                    # First p = name row, second p = headline, third p = location
+                    p_elements = container.find_elements(By.CSS_SELECTOR, "p")
                     headline = (
-                        headline_elements[1].text.strip() if len(headline_elements) > 1 else "N/A"
+                        p_elements[1].text.strip() if len(p_elements) > 1 else "N/A"
                     )
                     location = (
-                        headline_elements[2].text.strip() if len(headline_elements) > 2 else "N/A"
+                        p_elements[2].text.strip() if len(p_elements) > 2 else "N/A"
                     )
 
                     try:
