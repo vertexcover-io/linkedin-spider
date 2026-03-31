@@ -389,7 +389,7 @@ def serve(
             logger.info("LinkedIn scraper initialized successfully")
         except Exception:
             logger.exception("Failed to initialize scraper")
-            logger.error("Cannot start server without valid LinkedIn session")
+            logger.exception("Cannot start server without valid LinkedIn session")
             sys.exit(1)
 
     logger.info(

@@ -1,4 +1,3 @@
-import contextlib
 import logging
 import re
 from typing import Any
@@ -123,16 +122,24 @@ class ConnectionScraper(BaseScraper):
                 self.log_action("ERROR", "Failed to load profile page")
                 return False
 
-            self.driver.execute_script("window.scrollTo(0, document.body.scrollHeight / 2);")
             self.human_behavior.delay(1, 2)
 
-            if not self._click_connect_button():
-                self.log_action("ERROR", "Connect button not found")
-                return False
+            # Try to find a /preload/custom-invite/ link and navigate directly
+            # Clicking the <a> link via SPA routing often fails to open the modal,
+            # but navigating directly to the invite URL works reliably.
+            if self._navigate_to_invite_url():
+                if not self._wait_for_modal():
+                    self.log_action("ERROR", "Connection modal not found after direct navigation")
+                    return False
+            else:
+                # Fallback: click Connect button on the page
+                if not self._click_connect_button():
+                    self.log_action("ERROR", "Connect button not found")
+                    return False
 
-            if not self._wait_for_modal():
-                self.log_action("ERROR", "Connection modal not found")
-                return False
+                if not self._wait_for_modal():
+                    self.log_action("ERROR", "Connection modal not found")
+                    return False
 
             if note and note.strip():
                 return self._send_with_note(note)
@@ -143,6 +150,24 @@ class ConnectionScraper(BaseScraper):
             self.log_action("ERROR", f"Connection request failed: {e!s}")
             return False
 
+    def _navigate_to_invite_url(self) -> bool:
+        """Find the invite URL from the profile page and navigate to it directly."""
+        try:
+            elements = self.driver.find_elements(
+                By.CSS_SELECTOR, "a[href*='/preload/custom-invite/']"
+            )
+            for element in elements:
+                href = element.get_attribute("href")
+                if href:
+                    self.log_action("INFO", f"Navigating to invite URL: {href}")
+                    self.human_behavior.delay(0.5, 1.0)
+                    self.driver.get(href)
+                    self.human_behavior.delay(1, 2)
+                    return True
+        except (NoSuchElementException, Exception):
+            logger.debug("No custom-invite link found on profile page")
+        return False
+
     def _wait_for_page_load(self) -> bool:
         try:
             self.wait.until(lambda driver: driver.current_url != "about:blank")
@@ -151,58 +176,129 @@ class ConnectionScraper(BaseScraper):
         else:
             return "linkedin.com/in/" in self.driver.current_url
 
+    def _get_profile_name(self) -> str:
+        """Extract the profile owner's name from the page."""
+        # Try h1 first (classic layout)
+        try:
+            heading = self.driver.find_element(By.CSS_SELECTOR, "h1")
+            name = heading.text.strip()
+            if name:
+                return name
+        except NoSuchElementException:
+            pass
+        # Fallback: extract from page title ("Pawan Y | LinkedIn")
+        try:
+            title = self.driver.title or ""
+            if "|" in title:
+                return title.split("|")[0].strip()
+        except (NoSuchElementException, TimeoutException):
+            pass
+        return ""
+
+    def _is_target_connect_button(self, element: WebElement, profile_name: str) -> bool:
+        """Check if a connect button is for the target profile, not a sidebar suggestion."""
+        aria = element.get_attribute("aria-label") or ""
+        if not aria:
+            return True  # no aria-label — can't distinguish, allow it
+        # aria-label like "Invite Pawan Y to connect" — check it matches the target name
+        if profile_name:
+            name_lower = profile_name.lower()
+            aria_lower = aria.lower()
+            # Try full name first, fall back to first name for truncated aria-labels
+            if name_lower in aria_lower:
+                return True
+            first_name = profile_name.split()[0].lower()
+            return first_name in aria_lower
+        return True
+
     def _click_connect_button(self) -> bool:
-        direct_connect_selectors = [
-            "section.artdeco-card[data-member-id] .artdeco-dropdown__item[aria-label^='Invite'][aria-label$='connect']",
-            "div.pv-s-profile-actions button[aria-label*='Invite'][aria-label*='connect']",
-            "div.ph5.pb5 button[aria-label*='Invite'][aria-label*='connect']",
-            "main section.artdeco-card button[aria-label*='Invite'][aria-label*='connect']",
-            "button.artdeco-button.artdeco-button--2.artdeco-button--primary[aria-label*='Invite']",
+        profile_name = self._get_profile_name()
+
+        # LinkedIn renders the Connect action as either <a> or <button> depending on layout
+        # Note: a[href*='/preload/custom-invite/'] is intentionally excluded here —
+        # it's handled by _navigate_to_invite_url() via driver.get() which is more
+        # reliable than clicking the SPA link.
+        css_selectors = [
+            "a[aria-label*='Invite'][aria-label*='connect']",
+            "button[aria-label*='Invite'][aria-label*='connect']",
             "button[data-control-name='connect']",
         ]
 
-        for selector in direct_connect_selectors:
+        # Wait for at least one connect element to be present before attempting clicks
+        combined_css = ", ".join(css_selectors)
+        try:
+            WebDriverWait(self.driver, 5).until(
+                EC.presence_of_element_located((By.CSS_SELECTOR, combined_css))
+            )
+        except TimeoutException:
+            logger.debug("No connect button appeared within timeout, trying dropdown")
+
+        for selector in css_selectors:
             try:
-                button = self.driver.find_element(By.CSS_SELECTOR, selector)
-                if button.is_displayed() and button.is_enabled():
-                    aria_label = button.get_attribute("aria-label") or ""
-                    data_control = button.get_attribute("data-control-name") or ""
+                elements = self.driver.find_elements(By.CSS_SELECTOR, selector)
+                for element in elements:
                     if (
-                        "connect" in aria_label.lower() and "invite" in aria_label.lower()
-                    ) or data_control == "connect":
+                        element.is_displayed()
+                        and element.is_enabled()
+                        and self._is_target_connect_button(element, profile_name)
+                    ):
+                        self.log_action("INFO", f"Clicking connect button: {selector}")
                         self.human_behavior.delay(0.5, 1.0)
-                        button.click()
+                        element.click()
                         return True
             except (NoSuchElementException, Exception):
                 logger.debug("Failed to find connect button with selector: %s", selector)
+                continue
+
+        # XPath fallback — match by visible text content
+        xpath_selectors = [
+            "//a[normalize-space(.)='Connect']",
+            "//button[normalize-space(.)='Connect']",
+        ]
+
+        for xpath in xpath_selectors:
+            try:
+                elements = self.driver.find_elements(By.XPATH, xpath)
+                for element in elements:
+                    if (
+                        element.is_displayed()
+                        and element.is_enabled()
+                        and self._is_target_connect_button(element, profile_name)
+                    ):
+                        self.log_action("INFO", f"Clicking connect button: {xpath}")
+                        self.human_behavior.delay(0.5, 1.0)
+                        element.click()
+                        return True
+            except (NoSuchElementException, Exception):
+                logger.debug("Failed to find connect button with xpath: %s", xpath)
                 continue
 
         return self._try_dropdown_connect()
 
     def _try_dropdown_connect(self) -> bool:
         dropdown_selectors = [
-            "section[data-view-name='profile-card'] button[aria-label*='More actions']",
-            "div.pv-s-profile-actions button[aria-label*='More actions']",
-            "div.ph5.pb5 button[aria-label*='More actions']",
-            "main section.artdeco-card button[aria-label*='More actions']",
+            "button[aria-label='More']",
+            "button[aria-label*='More actions']",
             "button.artdeco-dropdown__trigger[aria-label*='More actions']",
             "button[data-view-name='profile-overflow-button']",
         ]
 
         for selector in dropdown_selectors:
             try:
-                dropdown = self.driver.find_element(By.CSS_SELECTOR, selector)
-                if dropdown.is_displayed() and dropdown.is_enabled():
-                    self.human_behavior.delay(0.5, 1.0)
-                    try:
-                        dropdown.click()
-                    except Exception:
-                        self.driver.execute_script("arguments[0].click();", dropdown)
+                elements = self.driver.find_elements(By.CSS_SELECTOR, selector)
+                for dropdown in elements:
+                    if dropdown.is_displayed() and dropdown.is_enabled():
+                        self.log_action("INFO", f"Opening dropdown: {selector}")
+                        self.human_behavior.delay(0.5, 1.0)
+                        try:
+                            dropdown.click()
+                        except Exception:
+                            self.driver.execute_script("arguments[0].click();", dropdown)
 
-                    self.human_behavior.delay(2.0, 3.0)
+                        self.human_behavior.delay(2.0, 3.0)
 
-                    if self._click_dropdown_connect():
-                        return True
+                        if self._click_dropdown_connect():
+                            return True
 
             except (NoSuchElementException, Exception):
                 logger.debug("Failed to find dropdown with selector: %s", selector)
@@ -211,31 +307,58 @@ class ConnectionScraper(BaseScraper):
         return False
 
     def _click_dropdown_connect(self) -> bool:
+        wait_selectors = (
+            "div[data-view-name='edge-creation-connect-action'],"
+            " a[href*='custom-invite'],"
+            " div[aria-label*='Invite'][aria-label*='connect']"
+        )
         try:
             WebDriverWait(self.driver, 5).until(
-                EC.any_of(
-                    EC.presence_of_element_located(
-                        (
-                            By.CSS_SELECTOR,
-                            "div[data-view-name='edge-creation-connect-action'], a[href*='custom-invite'], div[aria-label*='Invite'][aria-label*='connect']",
-                        )
-                    ),
-                )
+                EC.presence_of_element_located((By.CSS_SELECTOR, wait_selectors))
             )
         except TimeoutException:
             return False
 
-        connect_selectors = [
+        # First, try to extract the custom-invite URL and navigate directly.
+        # Clicking the <a> via SPA routing often fails to open the modal,
+        # but driver.get() to the invite URL works reliably.
+        invite_url_selectors = [
+            "a[href*='/preload/custom-invite/']",
+            "a[href*='custom-invite']",
+        ]
+        for selector in invite_url_selectors:
+            try:
+                elements = self.driver.find_elements(By.CSS_SELECTOR, selector)
+                for element in elements:
+                    if element.is_displayed():
+                        href = element.get_attribute("href")
+                        if href:
+                            self.log_action(
+                                "INFO", f"Navigating to invite URL from dropdown: {href}"
+                            )
+                            self.human_behavior.delay(0.5, 1)
+                            self.driver.get(href)
+                            self.human_behavior.delay(1, 2)
+                            return True
+            except (NoSuchElementException, Exception):
+                logger.debug("Failed to find invite URL with selector: %s", selector)
+                continue
+
+        # Fallback: click non-link connect items in the dropdown
+        click_selectors = [
+            "div[aria-label*='Invite'][aria-label*='connect']",
             "div.artdeco-dropdown div[aria-label^='Invite'][aria-label$='connect']",
             ".artdeco-dropdown__item[aria-label*='connect']",
+            "a[aria-label*='Invite'][aria-label*='connect']",
         ]
 
-        for selector in connect_selectors:
+        for selector in click_selectors:
             try:
                 connect_items = self.driver.find_elements(By.CSS_SELECTOR, selector)
 
                 for connect_item in connect_items:
                     if connect_item.is_displayed():
+                        self.log_action("INFO", f"Clicking dropdown connect: {selector}")
                         self.human_behavior.delay(0.5, 1)
 
                         try:
@@ -244,14 +367,6 @@ class ConnectionScraper(BaseScraper):
                             self.driver.execute_script("arguments[0].click();", connect_item)
 
                         self.human_behavior.delay(1, 2)
-
-                        with contextlib.suppress(TimeoutException):
-                            self.wait.until_not(
-                                EC.visibility_of_element_located(
-                                    (By.CSS_SELECTOR, ".artdeco-dropdown__content")
-                                )
-                            )
-
                         return True
 
             except (NoSuchElementException, Exception):
@@ -269,18 +384,22 @@ class ConnectionScraper(BaseScraper):
             "div.send-invite.artdeco-modal",
         ]
 
-        for selector in modal_selectors:
-            try:
-                modal = self.wait.until(EC.presence_of_element_located((By.CSS_SELECTOR, selector)))
-                self.wait.until(EC.visibility_of(modal))
-            except TimeoutException:
-                continue
-            else:
-                return True
-
-        return False
+        try:
+            modal = WebDriverWait(self.driver, 10).until(
+                EC.any_of(
+                    *(
+                        EC.visibility_of_element_located((By.CSS_SELECTOR, s))
+                        for s in modal_selectors
+                    )
+                )
+            )
+        except TimeoutException:
+            return False
+        else:
+            return modal is not False
 
     def _send_with_note(self, note: str) -> bool:
+        short_wait = WebDriverWait(self.driver, 10)
         try:
             add_note_selectors = [
                 "button[aria-label*='Add a note']",
@@ -289,17 +408,16 @@ class ConnectionScraper(BaseScraper):
                 "div.send-invite button.artdeco-button--muted",
             ]
 
-            add_note_button = None
-            for selector in add_note_selectors:
-                try:
-                    add_note_button = self.wait.until(
-                        EC.element_to_be_clickable((By.CSS_SELECTOR, selector))
+            try:
+                add_note_button = short_wait.until(
+                    EC.any_of(
+                        *(
+                            EC.element_to_be_clickable((By.CSS_SELECTOR, s))
+                            for s in add_note_selectors
+                        )
                     )
-                    break
-                except TimeoutException:
-                    continue
-
-            if not add_note_button:
+                )
+            except TimeoutException:
                 return False
 
             add_note_button.click()
@@ -311,17 +429,16 @@ class ConnectionScraper(BaseScraper):
                 "div.artdeco-modal textarea",
             ]
 
-            textarea = None
-            for selector in textarea_selectors:
-                try:
-                    textarea = self.wait.until(
-                        EC.element_to_be_clickable((By.CSS_SELECTOR, selector))
+            try:
+                textarea = short_wait.until(
+                    EC.any_of(
+                        *(
+                            EC.element_to_be_clickable((By.CSS_SELECTOR, s))
+                            for s in textarea_selectors
+                        )
                     )
-                    break
-                except TimeoutException:
-                    continue
-
-            if not textarea:
+                )
+            except TimeoutException:
                 return False
 
             textarea.clear()
@@ -334,17 +451,16 @@ class ConnectionScraper(BaseScraper):
                 "button.artdeco-button--primary[type='submit']",
             ]
 
-            send_button = None
-            for selector in send_button_selectors:
-                try:
-                    send_button = self.wait.until(
-                        EC.element_to_be_clickable((By.CSS_SELECTOR, selector))
+            try:
+                send_button = short_wait.until(
+                    EC.any_of(
+                        *(
+                            EC.element_to_be_clickable((By.CSS_SELECTOR, s))
+                            for s in send_button_selectors
+                        )
                     )
-                    break
-                except TimeoutException:
-                    continue
-
-            if not send_button:
+                )
+            except TimeoutException:
                 return False
 
             send_button.click()
@@ -366,17 +482,16 @@ class ConnectionScraper(BaseScraper):
                 "button.artdeco-button--primary[type='submit']",
             ]
 
-            send_button = None
-            for selector in send_button_selectors:
-                try:
-                    send_button = self.wait.until(
-                        EC.element_to_be_clickable((By.CSS_SELECTOR, selector))
+            try:
+                send_button = WebDriverWait(self.driver, 10).until(
+                    EC.any_of(
+                        *(
+                            EC.element_to_be_clickable((By.CSS_SELECTOR, s))
+                            for s in send_button_selectors
+                        )
                     )
-                    break
-                except TimeoutException:
-                    continue
-
-            if not send_button:
+                )
+            except TimeoutException:
                 return False
 
             send_button.click()

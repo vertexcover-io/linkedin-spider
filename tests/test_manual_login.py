@@ -1,6 +1,7 @@
 """Tests for manual login flow."""
-import pytest
-from unittest.mock import MagicMock, patch, PropertyMock
+
+from unittest.mock import MagicMock, PropertyMock
+
 from linkedin_spider.core.auth import AuthManager
 from linkedin_spider.core.driver import DriverManager
 from linkedin_spider.utils.human_behavior import HumanBehavior

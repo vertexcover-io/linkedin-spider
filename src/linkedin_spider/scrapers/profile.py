@@ -244,9 +244,7 @@ class ProfileScraper(BaseScraper):
 
     def _extract_experience_via_js(self, exp_section: WebElement) -> list[dict[str, str]]:
         """Extract experience items using company logo links as anchors for grouping."""
-        company_links = exp_section.find_elements(
-            By.CSS_SELECTOR, "a[href*='/company/']"
-        )
+        company_links = exp_section.find_elements(By.CSS_SELECTOR, "a[href*='/company/']")
 
         if not company_links:
             # Fallback: parse all p tags in the section as a flat list
@@ -349,9 +347,7 @@ class ProfileScraper(BaseScraper):
 
         try:
             # Try grouping by school links first (more reliable)
-            school_links = edu_section.find_elements(
-                By.CSS_SELECTOR, "a[href*='/school/']"
-            )
+            school_links = edu_section.find_elements(By.CSS_SELECTOR, "a[href*='/school/']")
             if school_links:
                 seen_container_ids: set[str] = set()
                 education_list: list[dict[str, str]] = []
