@@ -329,6 +329,11 @@ class SearchScraper(BaseScraper):
     def _find_post_containers(self) -> list[WebElement]:
         """Find all post containers on the page."""
         selectors = [
+            # New LinkedIn layout: posts are listitem divs with componentkey starting with "expanded"
+            "div[role='listitem'][componentkey^='expanded']",
+            # Fallback: any role=listitem inside lazy-column
+            "div[data-testid='lazy-column'] > div[role='listitem']",
+            # Legacy selectors
             "div[data-view-name='feed-full-update']",
             "div.feed-shared-update-v2__control-menu-container",
             "div.update-components-update-v2",
@@ -420,6 +425,11 @@ class SearchScraper(BaseScraper):
     def _extract_post_id(self, container: WebElement) -> str | None:
         """Extract a unique identifier for the post to avoid duplicates."""
         try:
+            # Try componentkey attribute (new LinkedIn layout)
+            componentkey = self._extract_attribute_safe(container, "componentkey")
+            if componentkey:
+                return componentkey
+
             # Try to get URN from data attributes
             urn = self._extract_attribute_safe(container, "data-urn")
             if urn:
@@ -517,6 +527,8 @@ class SearchScraper(BaseScraper):
 
     def _extract_author_info(self, container: WebElement) -> dict[str, Any]:
         """Extract author name, headline, profile URL, and connection degree."""
+        import re
+
         author_info: dict[str, Any] = {
             "author_name": "N/A",
             "author_headline": "N/A",
@@ -525,68 +537,118 @@ class SearchScraper(BaseScraper):
         }
 
         try:
-            # Strategy: find profile links inside the container, pick the one with text
+            # Strategy 1 (new layout): Use aria-label on author div for name + degree,
+            # then extract headline from <p> tags inside the author link section.
+            # The new DOM has: <div aria-label="Name Verified Profile 2nd"> containing <p> tags
+            author_div = self._find_element_in_parent(
+                container, By.CSS_SELECTOR, "div[aria-label*='Profile']"
+            )
+            if not author_div:
+                # Also try without "Profile" — some have "Open to work" etc
+                author_div = self._find_element_in_parent(
+                    container, By.CSS_SELECTOR, "div[aria-label*='1st'], div[aria-label*='2nd'], div[aria-label*='3rd']"
+                )
+
+            if author_div:
+                aria_label = self._extract_attribute_safe(author_div, "aria-label")
+                if aria_label:
+                    # Parse aria-label like "Mudit Bhardwaj Verified Profile 2nd"
+                    # or "Abhijit Bhattacharjee, Open to work Verified Profile 3rd+"
+                    # Extract connection degree
+                    degree_match = re.search(r"\b(1st|2nd|3rd\+?)\s*$", aria_label)
+                    if degree_match:
+                        degree = degree_match.group(1)
+                        if "3rd" in degree:
+                            author_info["connection_degree"] = "3rd+"
+                        else:
+                            author_info["connection_degree"] = degree
+
+                    # Extract name: everything before markers like "Verified", "Premium", "Open to work", degree
+                    name_text = re.sub(
+                        r"\s*,?\s*(Verified Profile|Premium Profile|Open to work)\s*", "", aria_label
+                    )
+                    name_text = re.sub(r"\s*(3rd\+?|2nd|1st)\s*$", "", name_text).strip()
+                    name_text = re.sub(r"\s*•\s*$", "", name_text).strip()
+                    if name_text:
+                        author_info["author_name"] = name_text
+
+            # Extract profile URL and headline from profile links.
+            # New layout: first <a href="/in/..."> is the photo (no <p> tags),
+            # second has <p> tags: p[0]=name, p[1]=degree/verified, p[2]=headline, p[3]=time
             profile_links = container.find_elements(By.CSS_SELECTOR, "a[href*='/in/']")
             for link in profile_links:
-                link_text = self._extract_text_safe(link)
-                if not link_text:
-                    continue
-
                 profile_url = self._extract_attribute_safe(link, "href")
                 if profile_url and "/in/" in profile_url:
-                    author_info["author_profile_url"] = profile_url.split("?")[0]
+                    if author_info["author_profile_url"] == "N/A":
+                        author_info["author_profile_url"] = profile_url.split("?")[0]
 
-                # Parse name, connection degree, and headline from the link text
-                lines = [ln.strip() for ln in link_text.split("\n") if ln.strip()]
-                # Filter out noise tokens
-                noise = {
-                    "premium profile",
-                    "verified profile",
-                    "follow",
-                    "promoted",
-                    "1st",
-                    "2nd",
-                    "3rd",
-                    "3rd+",
-                }
+                    # Try to extract headline from <p> tags inside this link
+                    p_tags = link.find_elements(By.TAG_NAME, "p")
+                    if len(p_tags) >= 3:
+                        # p[2] is typically the headline
+                        headline = self._extract_text_safe(p_tags[2])
+                        if headline and len(headline) > 5:
+                            # Verify it's not a time string or degree
+                            if not re.match(r"^\d+[mhdwsmo]+\s*•", headline) and not re.match(
+                                r"^[•\s]*(1st|2nd|3rd)", headline
+                            ):
+                                author_info["author_headline"] = headline.strip()
+                                break
 
-                # Connection degree from text like "• 3rd+"
-                for ln in lines:
-                    if "1st" in ln:
-                        author_info["connection_degree"] = "1st"
-                        break
-                    elif "2nd" in ln:
-                        author_info["connection_degree"] = "2nd"
-                        break
-                    elif "3rd" in ln:
-                        author_info["connection_degree"] = "3rd+"
-                        break
+            # Strategy 2 (legacy): fall back to parsing link text if new layout didn't work
+            if author_info["author_name"] == "N/A":
+                for link in profile_links:
+                    link_text = self._extract_text_safe(link)
+                    if not link_text:
+                        continue
 
-                clean_lines = [
-                    ln for ln in lines if ln.lower() not in noise and not ln.startswith("•")
-                ]
+                    profile_url = self._extract_attribute_safe(link, "href")
+                    if profile_url and "/in/" in profile_url:
+                        author_info["author_profile_url"] = profile_url.split("?")[0]
 
-                # First clean line is the name (may still contain inline noise)
-                if clean_lines:
-                    name = clean_lines[0]
-                    # Remove trailing noise like "Premium Profile", "Verified Profile", "3rd+"
-                    import re
+                    lines = [ln.strip() for ln in link_text.split("\n") if ln.strip()]
+                    noise = {
+                        "premium profile",
+                        "verified profile",
+                        "follow",
+                        "promoted",
+                        "1st",
+                        "2nd",
+                        "3rd",
+                        "3rd+",
+                    }
 
-                    name = re.sub(
-                        r"\s*(Premium Profile|Verified Profile|3rd\+?|2nd|1st)\s*",
-                        "",
-                        name,
-                    ).strip()
-                    if name:
-                        author_info["author_name"] = name
+                    for ln in lines:
+                        if "1st" in ln:
+                            author_info["connection_degree"] = "1st"
+                            break
+                        elif "2nd" in ln:
+                            author_info["connection_degree"] = "2nd"
+                            break
+                        elif "3rd" in ln:
+                            author_info["connection_degree"] = "3rd+"
+                            break
 
-                # Headline: lines after name, skip duplicates of the name
-                headline_candidates = [
-                    ln for ln in clean_lines[1:] if ln != author_info["author_name"]
-                ]
-                if headline_candidates:
-                    author_info["author_headline"] = headline_candidates[0]
-                break
+                    clean_lines = [
+                        ln for ln in lines if ln.lower() not in noise and not ln.startswith("•")
+                    ]
+
+                    if clean_lines:
+                        name = clean_lines[0]
+                        name = re.sub(
+                            r"\s*(Premium Profile|Verified Profile|3rd\+?|2nd|1st)\s*",
+                            "",
+                            name,
+                        ).strip()
+                        if name:
+                            author_info["author_name"] = name
+
+                    headline_candidates = [
+                        ln for ln in clean_lines[1:] if ln != author_info["author_name"]
+                    ]
+                    if headline_candidates:
+                        author_info["author_headline"] = headline_candidates[0]
+                    break
 
             # Fallback: company-authored posts (no /in/ links)
             if author_info["author_name"] == "N/A":
@@ -604,26 +666,6 @@ class SearchScraper(BaseScraper):
                         if len(lines) > 1:
                             author_info["author_headline"] = lines[1]
                     break
-
-            # Fallback: legacy class-based selectors
-            if author_info["author_name"] == "N/A":
-                legacy_selectors = [
-                    ".update-components-actor__container",
-                    ".update-components-actor",
-                    ".feed-shared-actor",
-                ]
-                for selector in legacy_selectors:
-                    actor = self._find_element_in_parent(container, By.CSS_SELECTOR, selector)
-                    if actor:
-                        name_link = self._find_element_in_parent(
-                            actor, By.CSS_SELECTOR, "a.update-components-actor__meta-link"
-                        )
-                        if name_link:
-                            author_info["author_name"] = self._extract_text_safe(name_link)
-                            href = self._extract_attribute_safe(name_link, "href")
-                            if href and "/in/" in href:
-                                author_info["author_profile_url"] = href.split("?")[0]
-                        break
 
         except Exception as e:
             self.log_action("WARNING", f"Error extracting author info: {e!s}")
@@ -758,6 +800,9 @@ class SearchScraper(BaseScraper):
         try:
             # Extract post text
             text_selectors = [
+                # New LinkedIn layout: post text in expandable-text-box span
+                "span[data-testid='expandable-text-box']",
+                # Legacy selectors
                 "p[data-view-name='feed-commentary']",
                 ".update-components-text",
                 ".feed-shared-update-v2__description",
@@ -771,7 +816,7 @@ class SearchScraper(BaseScraper):
                 if text_elem:
                     # Extract text as markdown to preserve links
                     post_text = self._extract_text_as_markdown(text_elem)
-                    if post_text and post_text != "…more":
+                    if post_text and post_text != "…more" and post_text != "… more":
                         content_info["post_text"] = post_text
                         post_content_elem = text_elem
                         break
@@ -783,6 +828,16 @@ class SearchScraper(BaseScraper):
             hashtags = []
             for link in hashtag_links:
                 hashtag_text = self._extract_text_safe(link)
+                # New layout: .text may be empty due to CSS hiding; use textContent via JS
+                if not hashtag_text:
+                    try:
+                        hashtag_text = self.driver.execute_script(
+                            "return arguments[0].textContent;", link
+                        )
+                        if hashtag_text:
+                            hashtag_text = hashtag_text.strip()
+                    except Exception:
+                        pass
                 if hashtag_text and hashtag_text.startswith("#"):
                     hashtags.append(hashtag_text)
 
@@ -800,16 +855,14 @@ class SearchScraper(BaseScraper):
                     if not href or "/search/results/all/?keywords=%23" in href:
                         continue
 
-                    # Keep LinkedIn redirect URLs (these point to external sites)
-                    if "linkedin.com/redir/" in href:
+                    # Keep LinkedIn redirect/safety URLs (these point to external sites)
+                    if "linkedin.com/redir/" in href or "linkedin.com/safety/go/" in href:
                         links.append(href)
                         continue
 
                     # For other links, only keep external domains (not linkedin.com)
                     if href.startswith("http"):
-                        # Parse the URL to check domain
                         parsed = urllib.parse.urlparse(href)
-                        # Skip if it's a LinkedIn domain link
                         if "linkedin.com" not in parsed.netloc:
                             links.append(href)
 
@@ -817,26 +870,49 @@ class SearchScraper(BaseScraper):
                     content_info["links"] = links
 
             # Extract post time
-            time_selectors = [
-                ".update-components-actor__sub-description",
-                "span.update-components-actor__sub-description",
-                ".feed-shared-actor__sub-description",
-            ]
+            # New layout: time is in a <p> tag containing text like "7m • Edited •" or "4d •"
+            # with a globe SVG icon nearby. Look for <p> tags with the time pattern.
+            import re
 
-            for selector in time_selectors:
-                time_elem = self._find_element_in_parent(container, By.CSS_SELECTOR, selector)
-                if time_elem:
-                    time_text = self._extract_text_safe(time_elem)
-                    if time_text:
-                        # Extract time from text like "4d •" or "2h •"
-                        time_parts = time_text.split("•")
-                        if time_parts:
-                            relative_time = time_parts[0].strip()
-                            # Convert to UTC timestamp
-                            content_info["post_time"] = self._parse_relative_time_to_utc(
-                                relative_time
-                            )
-                            break
+            time_found = False
+
+            # Strategy 1 (new layout): find <p> tags inside the author section with time pattern
+            p_tags = container.find_elements(By.TAG_NAME, "p")
+            for p_tag in p_tags:
+                p_text = self._extract_text_safe(p_tag)
+                if p_text:
+                    # Match patterns like "7m •", "4d •", "2h • Edited •", "1mo •"
+                    time_match = re.match(r"^(\d+(?:mo|w|d|h|m|s))\s*•", p_text)
+                    if time_match:
+                        relative_time = time_match.group(1)
+                        content_info["post_time"] = self._parse_relative_time_to_utc(
+                            relative_time
+                        )
+                        time_found = True
+                        break
+
+            # Strategy 2 (legacy): class-based selectors
+            if not time_found:
+                time_selectors = [
+                    ".update-components-actor__sub-description",
+                    "span.update-components-actor__sub-description",
+                    ".feed-shared-actor__sub-description",
+                ]
+
+                for selector in time_selectors:
+                    time_elem = self._find_element_in_parent(
+                        container, By.CSS_SELECTOR, selector
+                    )
+                    if time_elem:
+                        time_text = self._extract_text_safe(time_elem)
+                        if time_text:
+                            time_parts = time_text.split("•")
+                            if time_parts:
+                                relative_time = time_parts[0].strip()
+                                content_info["post_time"] = self._parse_relative_time_to_utc(
+                                    relative_time
+                                )
+                                break
 
         except Exception as e:
             self.log_action("WARNING", f"Error extracting post content: {e!s}")
@@ -845,6 +921,8 @@ class SearchScraper(BaseScraper):
 
     def _extract_engagement_metrics(self, container: WebElement) -> dict[str, int]:
         """Extract likes, comments, and reposts counts."""
+        import re
+
         metrics = {
             "likes_count": 0,
             "comments_count": 0,
@@ -852,74 +930,66 @@ class SearchScraper(BaseScraper):
         }
 
         try:
-            # Extract likes count
-            likes_selectors = [
-                "a[data-view-name='feed-reaction-count']",
-                "button[aria-label*='reactions']",
-                "button[data-reaction-details]",
-                ".social-details-social-counts__reactions",
-            ]
+            # New LinkedIn layout: counts are in <span class="ea69fe69"> with text like
+            # "5 reactions", "7 comments", "2 reposts". These are screen-reader text spans.
+            # There are also <span aria-hidden="true"> siblings with just the visible text.
+            sr_spans = container.find_elements(By.CSS_SELECTOR, "span.ea69fe69")
+            for span in sr_spans:
+                span_text = self._extract_text_safe(span)
+                if not span_text:
+                    continue
+                numbers = re.findall(r"\d+", span_text)
+                if not numbers:
+                    continue
+                count = int(numbers[0])
+                text_lower = span_text.lower()
+                if "reaction" in text_lower:
+                    metrics["likes_count"] = count
+                elif "comment" in text_lower:
+                    metrics["comments_count"] = count
+                elif "repost" in text_lower:
+                    metrics["reposts_count"] = count
 
-            for selector in likes_selectors:
-                likes_elem = self._find_element_in_parent(container, By.CSS_SELECTOR, selector)
-                if likes_elem:
-                    likes_text = self._extract_text_safe(likes_elem)
-                    if not likes_text:
-                        # Try aria-label
-                        likes_text = self._extract_attribute_safe(likes_elem, "aria-label")
+            # If new layout didn't find anything, try legacy selectors
+            if metrics["likes_count"] == 0 and metrics["comments_count"] == 0:
+                # Also try parsing visible text from clickable elements
+                # New layout: comment/repost counts appear in role="button" divs
+                button_divs = container.find_elements(By.CSS_SELECTOR, "div[role='button']")
+                for btn_div in button_divs:
+                    btn_text = self._extract_text_safe(btn_div)
+                    if not btn_text:
+                        continue
+                    numbers = re.findall(r"\d+", btn_text)
+                    if not numbers:
+                        continue
+                    count = int(numbers[0])
+                    text_lower = btn_text.lower()
+                    if "comment" in text_lower and metrics["comments_count"] == 0:
+                        metrics["comments_count"] = count
+                    elif "repost" in text_lower and metrics["reposts_count"] == 0:
+                        metrics["reposts_count"] = count
 
-                    # Extract number from text like "12 reactions" or "12"
-                    if likes_text:
-                        import re
-
-                        numbers = re.findall(r"\d+", likes_text)
-                        if numbers:
-                            metrics["likes_count"] = int(numbers[0])
-                            break
-
-            # Extract comments count
-            comment_selectors = [
-                "div[data-view-name='feed-comment-count'] button",
-                "button[aria-label*='comment']",
-                "li.social-details-social-counts__comments",
-                "button.comment-button",
-            ]
-
-            for selector in comment_selectors:
-                comment_elem = self._find_element_in_parent(container, By.CSS_SELECTOR, selector)
-                if comment_elem:
-                    comment_text = self._extract_text_safe(comment_elem)
-                    if not comment_text:
-                        comment_text = self._extract_attribute_safe(comment_elem, "aria-label")
-
-                    if comment_text:
-                        import re
-
-                        numbers = re.findall(r"\d+", comment_text)
-                        if numbers:
-                            metrics["comments_count"] = int(numbers[0])
-                            break
-
-            # Extract reposts count
-            repost_selectors = [
-                "button[aria-label*='repost']",
-                "li.social-details-social-counts__item--reposts",
-            ]
-
-            for selector in repost_selectors:
-                repost_elem = self._find_element_in_parent(container, By.CSS_SELECTOR, selector)
-                if repost_elem:
-                    repost_text = self._extract_text_safe(repost_elem)
-                    if not repost_text:
-                        repost_text = self._extract_attribute_safe(repost_elem, "aria-label")
-
-                    if repost_text:
-                        import re
-
-                        numbers = re.findall(r"\d+", repost_text)
-                        if numbers:
-                            metrics["reposts_count"] = int(numbers[0])
-                            break
+            # Legacy selectors fallback
+            if metrics["likes_count"] == 0:
+                likes_selectors = [
+                    "a[data-view-name='feed-reaction-count']",
+                    "button[aria-label*='reactions']",
+                    "button[data-reaction-details]",
+                    ".social-details-social-counts__reactions",
+                ]
+                for selector in likes_selectors:
+                    likes_elem = self._find_element_in_parent(
+                        container, By.CSS_SELECTOR, selector
+                    )
+                    if likes_elem:
+                        likes_text = self._extract_text_safe(likes_elem)
+                        if not likes_text:
+                            likes_text = self._extract_attribute_safe(likes_elem, "aria-label")
+                        if likes_text:
+                            numbers = re.findall(r"\d+", likes_text)
+                            if numbers:
+                                metrics["likes_count"] = int(numbers[0])
+                                break
 
         except Exception as e:
             self.log_action("WARNING", f"Error extracting engagement metrics: {e!s}")
@@ -931,6 +1001,8 @@ class SearchScraper(BaseScraper):
         try:
             # Find the three dots button (control menu button)
             control_menu_selectors = [
+                # New layout: "Open control menu for post by ..."
+                "button[aria-label^='Open control menu']",
                 "button[aria-label*='Control menu']",
                 "button.feed-shared-control-menu__trigger",
                 "button[aria-label*='More actions']",
@@ -1071,11 +1143,23 @@ class SearchScraper(BaseScraper):
         try:
             # Extract all images
             image_selectors = [
+                # New layout: images inside figure elements (skip profile photos)
+                "figure img[src*='dms/image']",
+                # Legacy selectors
                 ".update-components-image img",
                 "img.update-components-image__image",
                 "img[alt*='image']",
                 ".feed-shared-image img",
                 ".feed-shared-image__image",
+            ]
+
+            # Profile photo URL patterns to exclude from media_urls
+            profile_photo_patterns = [
+                "displayphoto-shrink_",
+                "displayphoto-scale_",
+                "company-logo_",
+                "group-logo_",
+                "profile-framedphoto-shrink_",
             ]
 
             for selector in image_selectors:
@@ -1084,6 +1168,9 @@ class SearchScraper(BaseScraper):
                     for img_elem in img_elements:
                         src = self._extract_attribute_safe(img_elem, "src")
                         if src and src.startswith("http") and src not in media_urls:
+                            # Skip profile photos, company logos, group logos
+                            if any(pattern in src for pattern in profile_photo_patterns):
+                                continue
                             media_urls.append(src)
                 except Exception as e:
                     self.log_action(
