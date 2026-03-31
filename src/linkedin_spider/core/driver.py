@@ -322,6 +322,23 @@ class DriverManager:
                     "Page.addScriptToEvaluateOnNewDocument", {"source": self.config.stealth_script}
                 )
 
+    def warm_up_browser(self) -> None:
+        """Visit benign sites to build a normal browsing fingerprint before LinkedIn."""
+        if not self.driver:
+            return
+
+        warmup_sites = [
+            "https://www.google.com",
+            "https://en.wikipedia.org/wiki/Main_Page",
+        ]
+
+        for url in warmup_sites:
+            try:
+                self.driver.get(url)
+                time.sleep(2)
+            except Exception:
+                logger.debug("Warm-up navigation to %s failed, continuing", url)
+
     def _get_chrome_version(self) -> str | None:
         """Get installed Chrome version."""
         try:

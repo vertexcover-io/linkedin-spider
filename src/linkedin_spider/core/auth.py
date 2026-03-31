@@ -1,8 +1,6 @@
 import logging
 
-from selenium.common.exceptions import NoSuchElementException, TimeoutException
 from selenium.webdriver.common.by import By
-from selenium.webdriver.support import expected_conditions as EC
 
 from linkedin_spider.core.driver import DriverManager
 from linkedin_spider.utils.human_behavior import HumanBehavior
@@ -11,22 +9,18 @@ logger = logging.getLogger(__name__)
 
 
 class AuthManager:
-    """Handles LinkedIn authentication via cookies or credentials."""
+    """Handles LinkedIn authentication via saved cookies, li_at cookie, or manual browser login."""
 
     def __init__(
         self,
         driver_manager: DriverManager,
         human_behavior: HumanBehavior,
-        email: str | None = None,
-        password: str | None = None,
         li_at_cookie: str | None = None,
     ):
         self.driver_manager = driver_manager
         self.driver = driver_manager.driver
         self.wait = driver_manager.wait
         self.human_behavior = human_behavior
-        self.email = email
-        self.password = password
         self.li_at_cookie = li_at_cookie
 
     def authenticate(self) -> bool:
@@ -34,54 +28,48 @@ class AuthManager:
         Authenticate using available methods with smart fallback priority.
 
         Priority order:
-        1. Try li_at_cookie from parameter (if provided)
-        2. Check if already authenticated
-        3. Try credentials from parameters (if provided)
-        4. Raise error if no authentication method available
+        1. Try saved cookies from profile directory (no user interaction)
+        2. Try li_at cookie parameter (if provided)
+        3. Open browser for manual login (if not headless)
+        4. Raise error if all methods fail
 
         Returns:
             bool: True if authentication succeeded
 
         Raises:
-            Exception: If all authentication methods fail or no credentials provided
+            Exception: If all authentication methods fail
         """
-
-        # Priority 1: If cookie parameter is explicitly provided, use it
-
-        if self.li_at_cookie:
-            logger.info("Using LinkedIn cookie from parameter")
-            if self._authenticate_with_cookie(self.li_at_cookie):
-                self.driver_manager.save_cookies()
-                return True
-            else:
-                logger.error("Cookie from parameter failed")
-                raise Exception("Provided li_at cookie is invalid or expired")  # noqa: TRY002
-
-        # Priority 2: Check if already authenticated with saved cookies
+        # Priority 1: Check saved cookies first (fastest, no interaction)
         logger.info("Checking for saved cookies in profile directory...")
         if self._try_saved_cookies():
             logger.info("Successfully authenticated using saved cookies")
             return True
-        else:
-            logger.info("No valid saved cookies found or authentication failed")
+        logger.info("No valid saved cookies found")
 
-        # Priority 3: Try credentials from parameters if provided
-        if self.email and self.password:
-            logger.info("Using LinkedIn credentials from parameter")
-            if self._login_with_credentials(self.email, self.password):
+        # Priority 2: Try li_at cookie if provided
+        if self.li_at_cookie:
+            logger.info("Trying li_at cookie from parameter...")
+            if self._authenticate_with_cookie(self.li_at_cookie):
                 self.driver_manager.save_cookies()
                 return True
-            else:
-                logger.error("Login with provided credentials failed")
-                raise Exception("Login failed with provided credentials")  # noqa: TRY002
+            logger.warning("Provided li_at cookie is invalid or expired")
 
-        # No authentication method available
-        logger.error("No valid authentication method found")
+        # Priority 3: Manual browser login (only if not headless)
+        if not self.driver_manager.config.headless:
+            logger.info("Starting manual browser login...")
+            self.driver_manager.warm_up_browser()
+            if self._manual_login():
+                self.driver_manager.save_cookies()
+                return True
+            logger.warning("Manual login failed or timed out")
+
+        # All methods exhausted
         raise Exception(  # noqa: TRY002
-            "Authentication required. Saved cookies not found or invalid. Please provide either:\n"
-            "  - li_at cookie (--cookie parameter)\n"
-            "  - Email and password (--email and --password parameters)\n"
-            "  - Set environment variables: LINKEDIN_EMAIL, LINKEDIN_PASSWORD, or cookie"
+            "Authentication failed. All methods exhausted.\n"
+            "Options:\n"
+            "  1. Run with --login flag to open browser for manual login\n"
+            "  2. Provide li_at cookie via --cookie parameter or LINKEDIN_COOKIE env var\n"
+            "  3. Ensure headless mode is off for manual login"
         )
 
     def _is_authenticated(self) -> bool:
@@ -98,7 +86,7 @@ class AuthManager:
                 return False
 
             if "feed" in current_url or "mynetwork" in current_url:
-                return self._quick_feed_check()
+                return self._quick_feed_check() and self._validate_session_cookies()
 
             self.driver.get("https://www.linkedin.com")
             self.human_behavior.delay(1, 2)
@@ -108,6 +96,7 @@ class AuthManager:
                 "login" not in current_url
                 and "signin" not in current_url
                 and self._quick_feed_check()
+                and self._validate_session_cookies()
             )
         except Exception:
             return False
@@ -126,6 +115,21 @@ class AuthManager:
             ]
             return any(indicator in page_source for indicator in auth_indicators)
         except Exception:
+            return False
+
+    def _validate_session_cookies(self) -> bool:
+        """Validate that essential LinkedIn session cookies are present."""
+        try:
+            cookies = self.driver.get_cookies()
+            cookie_names = {c["name"] for c in cookies}
+
+            if "li_at" not in cookie_names:
+                logger.warning("Missing essential cookie: li_at")
+                return False
+
+            return True
+        except Exception:
+            logger.debug("Failed to validate session cookies")
             return False
 
     def _try_saved_cookies(self) -> bool:
@@ -162,125 +166,6 @@ class AuthManager:
 
             return False
 
-    def _login_with_credentials(self, email: str, password: str) -> bool:
-        """
-        Login using email and password.
-
-        Args:
-            email: LinkedIn email
-            password: LinkedIn password
-
-        Returns:
-            bool: True if login succeeded
-        """
-        try:
-            self.driver.get("https://www.linkedin.com/login")
-            self.human_behavior.delay(2, 3)
-
-            email_field = self.wait.until(EC.presence_of_element_located((By.ID, "username")))
-            self.human_behavior.click(email_field)
-            self.human_behavior.type_text(email_field, email)
-
-            password_field = self.driver.find_element(By.ID, "password")
-            self.human_behavior.click(password_field)
-            self.human_behavior.type_text(password_field, password)
-
-            self.human_behavior.delay()
-
-            login_button = self.driver.find_element(By.XPATH, "//button[@type='submit']")
-            self.human_behavior.click(login_button)
-
-            self.human_behavior.delay(3, 5)
-
-            if self._check_login_errors():
-                logger.error("Login errors detected")
-                return False
-
-            if self._is_challenge_present():
-                return self._handle_challenge()
-
-            return self._is_authenticated()
-
-        except Exception:
-            logger.exception("Credential login exception")
-            return False
-
-    def _is_challenge_present(self) -> bool:
-        """Check if security challenge is present."""
-        current_url = self.driver.current_url.lower()
-        challenge_indicators = [
-            "challenge",
-            "verification",
-            "captcha",
-            "security-challenge",
-            "checkpoint",
-            "two-step",
-            "uas/login",
-        ]
-        return any(indicator in current_url for indicator in challenge_indicators)
-
-    def _handle_challenge(self) -> bool:
-        """Handle security challenges with user interaction."""
-        logger.warning(
-            "Security challenge detected! Please complete the challenge manually in the browser window."
-        )
-
-        max_attempts = 3
-
-        for attempt in range(1, max_attempts + 1):
-            logger.info(
-                "Challenge attempt %d/%d - waiting for user input...", attempt, max_attempts
-            )
-
-            input()
-            self.human_behavior.delay(3, 6)
-
-            current_url = self.driver.current_url.lower()
-
-            if not ("challenge" in current_url or self._is_challenge_present()):
-                if "feed" in current_url or "mynetwork" in current_url:
-                    try:
-                        self.wait.until(EC.presence_of_element_located((By.TAG_NAME, "main")))
-                        if self._verify_feed_access():
-                            logger.info("Challenge completed successfully!")
-                            return True
-                    except TimeoutException:
-                        pass
-
-                self.driver.get("https://www.linkedin.com/feed/")
-                self.human_behavior.delay(3, 6)
-
-                try:
-                    self.wait.until(EC.presence_of_element_located((By.TAG_NAME, "main")))
-                    if self._verify_feed_access():
-                        logger.info("Authentication verified after challenge!")
-                        return True
-                except TimeoutException:
-                    if not self._is_challenge_present():
-                        continue
-
-        logger.error("Failed to complete challenge after multiple attempts")
-        return False
-
-    def _check_login_errors(self) -> bool:
-        """Check for login error messages."""
-        error_selectors = [
-            ".form__label--error",
-            ".alert",
-            "[data-js-module-id='guest-input-validation']",
-            ".msg--error",
-        ]
-
-        for selector in error_selectors:
-            try:
-                error_element = self.driver.find_element(By.CSS_SELECTOR, selector)
-                if error_element.is_displayed():
-                    return True
-            except NoSuchElementException:
-                continue
-
-        return False
-
     def _verify_feed_access(self) -> bool:
         """Verify that user has access to LinkedIn feed."""
         current_url = self.driver.current_url.lower()
@@ -316,6 +201,70 @@ class AuthManager:
         ]
 
         return any(indicator in page_source for indicator in auth_indicators)
+
+    def _manual_login(self, timeout: int = 300) -> bool:
+        """
+        Open LinkedIn login page and wait for the user to complete login manually.
+
+        This handles 2FA, captcha, and any other challenges transparently since
+        the user completes them in the real browser window.
+
+        Args:
+            timeout: Maximum seconds to wait for login completion (default: 5 minutes)
+
+        Returns:
+            bool: True if user successfully logged in within the timeout
+        """
+        import time as _time
+
+        try:
+            logger.info(
+                "Opening LinkedIn login page. Please log in manually in the browser window. "
+                "You have %d seconds to complete login (including 2FA/captcha).",
+                timeout,
+            )
+            self.driver.get("https://www.linkedin.com/login")
+            self.human_behavior.delay(2, 3)
+
+            start = _time.monotonic()
+            poll_interval = 2
+
+            while (_time.monotonic() - start) < timeout:
+                try:
+                    current_url = self.driver.current_url.lower()
+
+                    # Still on login/challenge page — keep waiting
+                    if any(
+                        indicator in current_url
+                        for indicator in [
+                            "login",
+                            "signin",
+                            "challenge",
+                            "checkpoint",
+                            "verification",
+                        ]
+                    ):
+                        _time.sleep(poll_interval)
+                        continue
+
+                    # Might be authenticated — verify with feed check
+                    if self._is_authenticated():
+                        logger.info("Manual login successful!")
+                        return True
+
+                    # URL changed but not clearly authenticated — keep polling
+                    _time.sleep(poll_interval)
+
+                except Exception:
+                    logger.debug("Error during login poll, retrying...")
+                    _time.sleep(poll_interval)
+
+            logger.warning("Manual login timed out after %d seconds", timeout)
+            return False
+
+        except Exception:
+            logger.exception("Manual login failed with error")
+            return False
 
     def _handle_welcome_page(self) -> bool:
         """Handle welcome back page with profile selection."""

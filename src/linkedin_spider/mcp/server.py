@@ -358,14 +358,6 @@ def serve(
             help="Port number for HTTP/SSE transport",
         ),
     ] = 8000,
-    email: Annotated[
-        str | None,
-        Parameter(help="LinkedIn email for authentication"),
-    ] = None,
-    password: Annotated[
-        str | None,
-        Parameter(help="LinkedIn password for authentication"),
-    ] = None,
     cookie: Annotated[
         str | None,
         Parameter(help="LinkedIn li_at cookie for authentication"),
@@ -393,11 +385,11 @@ def serve(
     with _suppress_stdout():
         try:
             logger.info("Initializing LinkedIn scraper...")
-            _initialize_scraper(email, password, cookie, headless, user_agent, proxy)
+            _initialize_scraper(cookie, headless, user_agent, proxy)
             logger.info("LinkedIn scraper initialized successfully")
         except Exception:
             logger.exception("Failed to initialize scraper")
-            logger.exception("Cannot start server without valid LinkedIn credentials")
+            logger.error("Cannot start server without valid LinkedIn session")
             sys.exit(1)
 
     logger.info(
@@ -419,8 +411,6 @@ def serve(
 
 
 def _initialize_scraper(
-    email: str | None = None,
-    password: str | None = None,
     cookie: str | None = None,
     headless: bool = True,
     user_agent: str | None = None,
@@ -430,31 +420,22 @@ def _initialize_scraper(
     global _scraper_instance
 
     if _scraper_instance is None:
-        credentials = _get_credentials(email, password, cookie)
+        credentials = _get_credentials(cookie)
         custom_user_agent = user_agent or os.getenv("USER_AGENT")
         proxy_url = proxy or os.getenv("PROXY_URL")
         config = ScraperConfig(headless=headless, proxy=proxy_url)
 
         _scraper_instance = LinkedinSpider(
-            email=credentials.get("email"),
-            password=credentials.get("password"),
             li_at_cookie=credentials.get("cookie"),
             config=config,
             user_agent=custom_user_agent,
         )
 
 
-def _get_credentials(email: str | None, password: str | None, cookie: str | None) -> dict:
-    """Get authentication credentials from arguments or environment."""
-    credentials = {
-        "email": email or os.getenv("LINKEDIN_EMAIL"),
-        "password": password or os.getenv("LINKEDIN_PASSWORD"),
-        "cookie": cookie or os.getenv("LINKEDIN_COOKIE") or os.getenv("COOKIE"),
-    }
-
-    # Allow None values to let the scraper try saved cookies first
-    # The authentication error will be raised by AuthManager if all methods fail
-    return credentials
+def _get_credentials(cookie: str | None = None) -> dict:
+    """Get authentication credentials from arguments or environment variables."""
+    final_cookie = cookie or os.getenv("LINKEDIN_COOKIE") or os.getenv("COOKIE")
+    return {"cookie": final_cookie}
 
 
 def cli_main():
