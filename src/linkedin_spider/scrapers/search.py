@@ -70,9 +70,7 @@ class SearchScraper(BaseScraper):
         """Extract anonymous data from current search results."""
         try:
             results = []
-            containers = self._find_elements_safe(
-                By.CSS_SELECTOR, "div[role='listitem']"
-            )
+            containers = self._find_elements_safe(By.CSS_SELECTOR, "div[role='listitem']")
 
             for container in containers[:10]:
                 try:
@@ -84,13 +82,9 @@ class SearchScraper(BaseScraper):
                             break
 
                     p_elements = container.find_elements(By.CSS_SELECTOR, "p")
-                    headline = (
-                        p_elements[1].text.strip() if len(p_elements) > 1 else "N/A"
-                    )
+                    headline = p_elements[1].text.strip() if len(p_elements) > 1 else "N/A"
 
-                    location = (
-                        p_elements[2].text.strip() if len(p_elements) > 2 else "N/A"
-                    )
+                    location = p_elements[2].text.strip() if len(p_elements) > 2 else "N/A"
 
                     result = {
                         "name": name,
@@ -161,9 +155,7 @@ class SearchScraper(BaseScraper):
             self.human_behavior.delay(1.0, 3.0)
 
             results = []
-            containers = self._find_elements_safe(
-                By.CSS_SELECTOR, "div[role='listitem']"
-            )
+            containers = self._find_elements_safe(By.CSS_SELECTOR, "div[role='listitem']")
 
             for i, container in enumerate(containers[:max_results]):
                 try:
@@ -183,12 +175,8 @@ class SearchScraper(BaseScraper):
                     # Headline and location are in <p> elements
                     # First p = name row, second p = headline, third p = location
                     p_elements = container.find_elements(By.CSS_SELECTOR, "p")
-                    headline = (
-                        p_elements[1].text.strip() if len(p_elements) > 1 else "N/A"
-                    )
-                    location = (
-                        p_elements[2].text.strip() if len(p_elements) > 2 else "N/A"
-                    )
+                    headline = p_elements[1].text.strip() if len(p_elements) > 1 else "N/A"
+                    location = p_elements[2].text.strip() if len(p_elements) > 2 else "N/A"
 
                     try:
                         img_elem = self._find_element_in_parent(container, By.CSS_SELECTOR, "img")

@@ -1,6 +1,7 @@
 """Tests for session cookie validation."""
-import pytest
+
 from unittest.mock import MagicMock
+
 from linkedin_spider.core.auth import AuthManager
 from linkedin_spider.core.driver import DriverManager
 from linkedin_spider.utils.human_behavior import HumanBehavior

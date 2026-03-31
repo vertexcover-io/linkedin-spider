@@ -1,4 +1,5 @@
 """Tests for browser warm-up functionality."""
+
 from unittest.mock import MagicMock
 
 from linkedin_spider.core.config import ScraperConfig

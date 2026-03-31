@@ -1,8 +1,9 @@
 """Tests for authentication priority order."""
+
 import inspect
+from unittest.mock import MagicMock
 
 import pytest
-from unittest.mock import MagicMock
 
 from linkedin_spider.core.auth import AuthManager
 from linkedin_spider.core.driver import DriverManager
