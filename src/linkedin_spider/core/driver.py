@@ -239,6 +239,11 @@ class DriverManager:
         """Create Chrome options with all necessary configurations."""
         chrome_options = Options()
 
+        # Return from driver.get() when DOM is parsed instead of waiting for every
+        # subresource. LinkedIn loads slow analytics scripts that keep readyState
+        # in 'loading' for tens of seconds otherwise.
+        chrome_options.page_load_strategy = "eager"
+
         if self.profile_dir:
             chrome_options.add_argument(f"--user-data-dir={self.profile_dir}")
             chrome_options.add_argument("--profile-directory=Default")
