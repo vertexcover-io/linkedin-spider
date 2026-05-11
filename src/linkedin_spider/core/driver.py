@@ -365,6 +365,17 @@ class DriverManager:
         except Exception:
             return None
 
+    def _get_platform_key(self) -> str | None:
+        """Map current OS/arch to chrome-for-testing platform key."""
+        system = platform.system()
+        if system == "Darwin":
+            return "mac-arm64" if platform.machine() == "arm64" else "mac-x64"
+        if system == "Linux":
+            return "linux64"
+        if system == "Windows":
+            return "win64"
+        return None
+
     def _get_chromedriver_download_url(self, version: str) -> tuple[str | None, str | None]:
         """Get ChromeDriver download URL for given Chrome version."""
         major_version = version.split(".")[0]
@@ -374,9 +385,7 @@ class DriverManager:
             response = requests.get(api_url, timeout=10)
             data = response.json()
 
-            system_map = {"Windows": "win64", "Darwin": "mac-x64", "Linux": "linux64"}
-
-            platform_key = system_map.get(platform.system())
+            platform_key = self._get_platform_key()
             if not platform_key:
                 return None, None
 
@@ -388,16 +397,14 @@ class DriverManager:
                         if download["platform"] == platform_key:
                             return download["url"], version_info["version"]
 
-            fallback_urls = {
-                "Windows": f"https://storage.googleapis.com/chrome-for-testing-public/{major_version}.0.0.0/win64/chromedriver-win64.zip",
-                "Darwin": f"https://storage.googleapis.com/chrome-for-testing-public/{major_version}.0.0.0/mac-x64/chromedriver-mac-x64.zip",
-                "Linux": f"https://storage.googleapis.com/chrome-for-testing-public/{major_version}.0.0.0/linux64/chromedriver-linux64.zip",
-            }
-
-            return fallback_urls.get(platform.system()), f"{major_version}.0.0.0"
-
+            fallback_url = (
+                f"https://storage.googleapis.com/chrome-for-testing-public/"
+                f"{major_version}.0.0.0/{platform_key}/chromedriver-{platform_key}.zip"
+            )
         except Exception:
             return None, None
+        else:
+            return fallback_url, f"{major_version}.0.0.0"
 
     def _download_and_extract_chromedriver(self, download_url: str, version: str) -> Path | None:
         """Download and extract ChromeDriver."""
