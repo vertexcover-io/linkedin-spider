@@ -797,43 +797,31 @@ class ConversationScraper(BaseScraper):
         return element if element else None
 
     def _find_send_button(self) -> WebElement | None:
+        # Current LinkedIn (2026): button.msg-form__send-btn (icon-only, no aria-label).
+        # Older fallback: button.msg-form__send-button (renamed pre-2026).
         css_selectors = [
+            "button.msg-form__send-btn",
             "button.msg-form__send-button",
-            "button[aria-label='Send']",
-            "button[type='submit']",
+            "form.msg-form button[type='submit']",
+            "[class*='msg-form'] button[type='submit']",
         ]
 
         for selector in css_selectors:
             try:
-                return self.wait.until(EC.presence_of_element_located((By.CSS_SELECTOR, selector)))
-            except TimeoutException:
-                continue
-
-        # XPath fallback — match by text
-        xpath_selectors = [
-            "//button[normalize-space(.)='Send']",
-            "//button[contains(., 'Send')]",
-        ]
-
-        for xpath in xpath_selectors:
-            try:
-                btn = self.driver.find_element(By.XPATH, xpath)
+                btn = self.driver.find_element(By.CSS_SELECTOR, selector)
                 if btn.is_displayed():
                     return btn
             except NoSuchElementException:
                 continue
 
-        # JS fallback — find button near contenteditable
+        # JS fallback — find type='submit' button adjacent to the contenteditable
         element: WebElement | None = self.driver.execute_script("""
             var editable = document.querySelector('[contenteditable=true]');
             if (!editable) return null;
             var parent = editable.parentElement;
             for (var i = 0; i < 8 && parent; i++) {
-                var buttons = parent.querySelectorAll('button');
-                for (var j = 0; j < buttons.length; j++) {
-                    var text = buttons[j].textContent.trim().toLowerCase();
-                    if (text === 'send' || text.includes('send')) return buttons[j];
-                }
+                var btn = parent.querySelector("button[type='submit']");
+                if (btn) return btn;
                 parent = parent.parentElement;
             }
             return null;
@@ -859,6 +847,21 @@ class ConversationScraper(BaseScraper):
         self.human_behavior.delay(0.3, 0.5)
         self.human_behavior.type_text(input_element, message, clear_first=False)
         self.human_behavior.delay(0.5, 1.0)
+
+        # Re-fetch the send button (LinkedIn re-renders it as it enables) and
+        # wait until it is no longer disabled before clicking.
+        try:
+            self.wait.until(
+                lambda _d: (b := self._find_send_button()) is not None and b.is_enabled()
+            )
+        except TimeoutException:
+            self.log_action("ERROR", "Send button did not enable after typing")
+            return False
+
+        send_button = self._find_send_button()
+        if not send_button or not send_button.is_enabled():
+            self.log_action("ERROR", "Send button unavailable after typing")
+            return False
 
         send_button.click()
         self.human_behavior.delay(1, 2)
