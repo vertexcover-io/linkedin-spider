@@ -1,6 +1,9 @@
 import contextlib
 import difflib
+import json
+import logging
 import re
+from pathlib import Path
 from typing import Any
 
 from selenium.common.exceptions import NoSuchElementException, TimeoutException
@@ -9,6 +12,15 @@ from selenium.webdriver.remote.webelement import WebElement
 from selenium.webdriver.support import expected_conditions as EC
 
 from linkedin_spider.scrapers.base import BaseScraper
+
+logger = logging.getLogger(__name__)
+
+COMPOSE_URL_CACHE_PATH = Path.home() / ".linkedin_spider_profiles" / "compose_url_cache.json"
+
+
+def _slug_from_profile_url(profile_url: str) -> str | None:
+    match = re.search(r"/in/([^/?#]+)", profile_url)
+    return match.group(1).lower() if match else None
 
 
 class ConversationScraper(BaseScraper):
@@ -666,27 +678,34 @@ class ConversationScraper(BaseScraper):
             return False
 
         prefix = "[DRY RUN] " if dry_run else ""
-        self.log_action("INFO", f"{prefix}Sending new message via profile: {profile_url}")
+        self.log_action("INFO", f"{prefix}Sending new message: {profile_url}")
 
-        self.navigate_to_url(profile_url)
-        self.human_behavior.delay(2, 3)
+        slug = _slug_from_profile_url(profile_url)
+        cached_url = self._lookup_cached_compose_url(slug) if slug else None
 
-        # Extract compose URL from Message link and navigate directly
-        compose_url = self._get_compose_url()
-        if compose_url:
-            self.log_action("INFO", f"Navigating to compose URL: {compose_url}")
-            self.driver.get(compose_url)
+        if cached_url:
+            self.log_action("INFO", f"Using cached compose URL for slug '{slug}'")
+            self.driver.get(cached_url)
             self.human_behavior.delay(3, 5)
         else:
-            # Fallback: click the Message button
-            if not self._click_message_button():
-                self.log_action("ERROR", "Message button not found on profile")
-                return False
-
-            # Wait for messaging page or overlay to load
-            with contextlib.suppress(TimeoutException):
-                self.wait.until(lambda d: "/messaging/" in d.current_url)
+            self.navigate_to_url(profile_url)
             self.human_behavior.delay(2, 3)
+
+            compose_url = self._get_compose_url()
+            if compose_url:
+                self.log_action("INFO", f"Navigating to compose URL: {compose_url}")
+                if slug:
+                    self._cache_compose_url(slug, compose_url)
+                self.driver.get(compose_url)
+                self.human_behavior.delay(3, 5)
+            else:
+                # Fallback: click the Message button (older UI / private profiles)
+                if not self._click_message_button():
+                    self.log_action("ERROR", "Message button not found on profile")
+                    return False
+                with contextlib.suppress(TimeoutException):
+                    self.wait.until(lambda d: "/messaging/" in d.current_url)
+                self.human_behavior.delay(2, 3)
 
         if not self._wait_for_message_input():
             self.log_action(
@@ -703,10 +722,30 @@ class ConversationScraper(BaseScraper):
             link = self.driver.find_element(By.CSS_SELECTOR, "a[href*='/messaging/compose/']")
             href = link.get_attribute("href")
             if href and "/messaging/" in href:
-                return href
+                return str(href)
         except NoSuchElementException:
             pass
         return None
+
+    def _lookup_cached_compose_url(self, slug: str) -> str | None:
+        try:
+            cache = json.loads(COMPOSE_URL_CACHE_PATH.read_text())
+        except (OSError, json.JSONDecodeError):
+            return None
+        url = cache.get(slug)
+        return str(url) if url else None
+
+    def _cache_compose_url(self, slug: str, compose_url: str) -> None:
+        try:
+            COMPOSE_URL_CACHE_PATH.parent.mkdir(parents=True, exist_ok=True)
+            try:
+                cache = json.loads(COMPOSE_URL_CACHE_PATH.read_text())
+            except (OSError, json.JSONDecodeError):
+                cache = {}
+            cache[slug] = compose_url
+            COMPOSE_URL_CACHE_PATH.write_text(json.dumps(cache, indent=2, sort_keys=True))
+        except OSError:
+            logger.warning("Could not persist compose-URL cache to %s", COMPOSE_URL_CACHE_PATH)
 
     def _click_message_button(self) -> bool:
         # CSS selectors — href-based is most stable
