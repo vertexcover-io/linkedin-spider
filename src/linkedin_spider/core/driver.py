@@ -38,6 +38,15 @@ class DriverManager:
         self.profile_dir: Path | None = None
         self.cookies_file: Path | None = None
 
+    def _build_quiet_service(self, driver_path: Path) -> Service:
+        """Build a chromedriver Service that does not leak any output to fd 1/2.
+
+        Without this, chromedriver inherits the parent's stdout and any line it
+        writes (e.g. its own info logs, or output from a misbehaving renderer)
+        corrupts the MCP JSON-RPC stream.
+        """
+        return Service(str(driver_path), log_output=subprocess.DEVNULL)
+
     def setup_driver(self, reuse_session: bool = True) -> webdriver.Chrome:
         """Setup and configure Chrome WebDriver with optional session reuse.
 
@@ -65,7 +74,7 @@ class DriverManager:
         try:
             driver_path = self._ensure_chromedriver()
             if driver_path:
-                service = Service(str(driver_path))
+                service = self._build_quiet_service(driver_path)
                 self.driver = webdriver.Chrome(service=service, options=chrome_options)
             else:
                 self.driver = webdriver.Chrome(options=chrome_options)
@@ -75,7 +84,7 @@ class DriverManager:
                 self._terminate_existing_chrome_processes()
                 try:
                     if driver_path:
-                        service = Service(str(driver_path))
+                        service = self._build_quiet_service(driver_path)
                         self.driver = webdriver.Chrome(service=service, options=chrome_options)
                     else:
                         self.driver = webdriver.Chrome(options=chrome_options)
@@ -109,7 +118,7 @@ class DriverManager:
             chrome_options = self._create_chrome_options()
             driver_path = self._ensure_chromedriver()
             if driver_path:
-                service = Service(str(driver_path))
+                service = self._build_quiet_service(driver_path)
                 self.driver = webdriver.Chrome(service=service, options=chrome_options)
             else:
                 self.driver = webdriver.Chrome(options=chrome_options)
