@@ -155,7 +155,7 @@ def test_search_connections_filter_applies(spider: LinkedinSpider) -> None:
     spider.search_profiles("data scientist", max_results=2, filters={"connections": "1"})
 
     applied = _applied_filters(spider)
-    assert applied.get("connections", {}).get("network") == "F"
+    assert applied.get("connections", {}).get("network") == ["F"]
 
     current_url = _current_url(spider)
     assert "network=" in current_url, f"network param missing from URL: {current_url}"
@@ -184,6 +184,38 @@ def test_search_location_geo_urn_cache_persists(spider: LinkedinSpider) -> None:
 
     applied = _applied_filters(spider)
     assert applied["location"].get("cached") is True, "Second call should have hit the geoUrn cache"
+
+
+@pytest.mark.integration
+def test_search_connections_multi_network(spider: LinkedinSpider) -> None:
+    """Connections=1,2 must add network=[\"F\",\"S\"] to the URL."""
+    spider.search_profiles("data scientist", max_results=2, filters={"connections": "1,2"})
+
+    applied = _applied_filters(spider)
+    assert applied.get("connections", {}).get("network") == ["F", "S"]
+
+    current_url = _current_url(spider)
+    assert "network=" in current_url, f"network param missing from URL: {current_url}"
+    assert "%22F%22" in current_url and "%22S%22" in current_url, (
+        f"both network codes should appear in URL: {current_url}"
+    )
+
+
+@pytest.mark.integration
+def test_search_connection_of_filter_applies(spider: LinkedinSpider) -> None:
+    """connection_of resolves a profile URL to its URN and applies connectionOf=."""
+    spider.search_profiles(
+        "AI Growth",
+        max_results=2,
+        filters={"connection_of": "https://www.linkedin.com/in/williamhgates/"},
+    )
+
+    applied = _applied_filters(spider)
+    assert "connection_of" in applied, f"connection_of not recorded; got {applied}"
+    assert applied["connection_of"].get("urn"), "connection_of did not resolve a URN"
+
+    current_url = _current_url(spider)
+    assert "connectionOf=" in current_url, f"connectionOf missing from URL: {current_url}"
 
 
 # ── search posts ──────────────────────────────────────────────────────────

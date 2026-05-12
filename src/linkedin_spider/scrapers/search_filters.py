@@ -2,11 +2,12 @@ import json
 import logging
 import re
 import urllib.parse
+from collections import Counter
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Any, cast
 
-from selenium.common.exceptions import TimeoutException
+from selenium.common.exceptions import NoSuchElementException, TimeoutException
 from selenium.webdriver.common.by import By
 from selenium.webdriver.remote.webelement import WebElement
 from selenium.webdriver.support.wait import WebDriverWait
@@ -14,6 +15,7 @@ from selenium.webdriver.support.wait import WebDriverWait
 logger = logging.getLogger(__name__)
 
 CACHE_DIR = Path.home() / ".linkedin_spider_profiles"
+PROFILE_URN_CACHE_FILE = "profile_urn_cache.json"
 
 CONNECTION_NETWORK_MAP = {
     "1": "F",
@@ -30,6 +32,28 @@ CONNECTION_NETWORK_MAP = {
     "third": "O",
     "o": "O",
 }
+
+
+def _parse_connection_codes(value: str) -> list[str]:
+    """Parse a comma-separated connections value into LinkedIn network codes.
+
+    "1" -> ["F"], "1,2" -> ["F", "S"], "1st, 3rd+" -> ["F", "O"].
+    Returns codes in given order, deduplicated.
+    """
+    seen: list[str] = []
+    for raw in value.split(","):
+        token = raw.strip().lower()
+        if not token:
+            continue
+        code = CONNECTION_NETWORK_MAP.get(token)
+        if code and code not in seen:
+            seen.append(code)
+    return seen
+
+
+def _profile_slug(profile_url: str) -> str | None:
+    match = re.search(r"/in/([^/?#]+)", profile_url)
+    return match.group(1).lower() if match else None
 
 
 @dataclass(frozen=True)
@@ -96,6 +120,73 @@ class SearchFilterHandler:
             params.update(extra_params)
         return "https://www.linkedin.com/search/results/people/?" + urllib.parse.urlencode(params)
 
+    def _resolve_profile_urn(self, profile_url: str) -> str | None:
+        """Resolve a /in/<slug>/ profile URL to its fsd_profile URN.
+
+        First tries the compose-link recipient= param (cheap, exact match).
+        Falls back to scanning page HTML for the canonical 39-char URN, which
+        is needed for profiles where the Message button isn't rendered
+        (public figures, restricted DMs, non-connections, etc.).
+        Cached by slug.
+        """
+        slug = _profile_slug(profile_url)
+        if not slug:
+            logger.warning("Could not parse slug from %s", profile_url)
+            return None
+
+        cache = self._load_cache(PROFILE_URN_CACHE_FILE)
+        cached = cache.get(slug)
+        if cached:
+            logger.info("Using cached profile URN for '%s': %s", slug, cached)
+            return str(cached)
+
+        try:
+            self.driver.get(profile_url)
+            self.human_behavior.delay(2, 4)
+            urn = self._extract_profile_urn_from_page()
+        except Exception:
+            logger.exception("Failed to resolve profile URN for %s", profile_url)
+            return None
+
+        if not urn:
+            logger.warning("Could not extract profile URN from %s", profile_url)
+            return None
+
+        cache[slug] = urn
+        self._save_cache(PROFILE_URN_CACHE_FILE)
+        return urn
+
+    def _extract_profile_urn_from_page(self) -> str | None:
+        """Read the current profile page's fsd_profile URN.
+
+        Tries the compose-link recipient= first (only present when the viewer
+        can DM the profile), then falls back to scanning the page HTML for the
+        canonical 39-char ACoAA-prefixed URN.
+        """
+        try:
+            link = self.driver.find_element(By.CSS_SELECTOR, "a[href*='/messaging/compose/']")
+            href = link.get_attribute("href") or ""
+            match = re.search(r"recipient=(ACoAA[A-Za-z0-9_-]{34})", href)
+            if match:
+                return match.group(1)
+        except NoSuchElementException:
+            pass
+
+        # Fallback: scan page HTML. The URN appears in many embedded JSON
+        # payloads; we take the most-frequent canonical-length token.
+        try:
+            html = cast(
+                "str", self.driver.execute_script("return document.documentElement.outerHTML")
+            )
+        except Exception:
+            return None
+        tokens = re.findall(r"ACoAA[A-Za-z0-9_-]{34}(?![A-Za-z0-9_-])", html)
+        if not tokens:
+            return None
+        # Pick the most common token (this profile's own URN dominates the page).
+        most_common, _ = Counter(tokens).most_common(1)[0]
+        return str(most_common)
+
     def search_and_apply_filters(
         self,
         query: str,
@@ -131,15 +222,29 @@ class SearchFilterHandler:
                 facets_needing_resolution.append((facet, value))
 
         if connections:
-            network_code = CONNECTION_NETWORK_MAP.get(connections.lower())
-            if network_code:
-                url_params["network"] = f'["{network_code}"]'
-                applied_filters["connections"] = {
-                    "value": connections,
-                    "network": network_code,
-                }
+            codes = _parse_connection_codes(connections)
+            if codes:
+                joined = ",".join(f'"{c}"' for c in codes)
+                url_params["network"] = f"[{joined}]"
+                applied_filters["connections"] = {"value": connections, "network": codes}
             else:
                 logger.warning("Unknown connections value '%s'", connections)
+
+        for param_name, profile_url in (
+            ("connectionOf", connection_of),
+            ("followersOf", followers_of),
+        ):
+            if not profile_url:
+                continue
+            urn = self._resolve_profile_urn(profile_url)
+            if not urn:
+                logger.warning("Could not resolve profile URN for %s", profile_url)
+                continue
+            url_params[param_name] = f'["{urn}"]'
+            applied_filters["connection_of" if param_name == "connectionOf" else "followers_of"] = {
+                "profile_url": profile_url,
+                "urn": urn,
+            }
 
         self.driver.get(self._build_search_url(query, url_params))
         self.human_behavior.delay(2, 4)

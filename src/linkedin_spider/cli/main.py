@@ -67,16 +67,22 @@ def search(
         str | None,
         Parameter(
             name=["--connections"],
-            help="Filter by connection degree (1st, 2nd, 3rd+)",
+            help='Filter by connection degree, comma-separated (e.g. "1", "1,2", "1st,3rd+")',
         ),
     ] = None,
     connection_of: Annotated[
         str | None,
-        Parameter(name=["--connection-of"], help="Filter by connections of a person"),
+        Parameter(
+            name=["--connection-of"],
+            help="Filter by connections of a person — pass their full LinkedIn profile URL",
+        ),
     ] = None,
     followers_of: Annotated[
         str | None,
-        Parameter(name=["--followers-of"], help="Filter by followers of a person"),
+        Parameter(
+            name=["--followers-of"],
+            help="Filter by followers of a person — pass their full LinkedIn profile URL",
+        ),
     ] = None,
     output: Annotated[
         str | None,
