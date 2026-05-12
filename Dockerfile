@@ -27,6 +27,7 @@ COPY --chown=app:app src/ ./src/
 RUN uv sync --frozen --group mcp --no-dev --no-editable
 
 ENV CHROMEDRIVER_PATH=/usr/bin/chromedriver \
+    CHROME_PATH=/usr/bin/chromium \
     TRANSPORT=stdio
 
 EXPOSE 8080
