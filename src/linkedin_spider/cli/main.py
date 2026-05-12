@@ -340,7 +340,79 @@ def search_posts(
         print(f"\nFound {len(results)} posts")
 
     except Exception as e:
-        print(f"Error: {e!s}", file=sys.stderr)
+        print(f"Error: {_format_error(e)}", file=sys.stderr)
+        sys.exit(1)
+    finally:
+        if "scraper" in locals():
+            scraper.close()
+
+
+@app.command(name="send-message")
+def send_message(
+    message: Annotated[str, Parameter(name=["-m", "--message"], help="Message body to send")],
+    profile_url: Annotated[
+        str | None,
+        Parameter(name=["-u", "--profile-url"], help="LinkedIn profile URL of the recipient"),
+    ] = None,
+    participant_name: Annotated[
+        str | None,
+        Parameter(
+            name=["-p", "--participant-name"],
+            help="Recipient name (matches an existing conversation in your inbox)",
+        ),
+    ] = None,
+    dry_run: Annotated[
+        bool,
+        Parameter(
+            name=["--dry-run"],
+            help="Navigate and prepare the message but do not send",
+            negative=["--no-dry-run"],
+        ),
+    ] = True,
+    headless: bool | None = None,
+    user_agent: Annotated[
+        str | None, Parameter(help="Custom user agent string for requests")
+    ] = None,
+    cookie: Annotated[
+        str | None, Parameter(help="LinkedIn li_at cookie for authentication")
+    ] = None,
+) -> None:
+    """Send a message to a LinkedIn profile (defaults to dry-run for safety)."""
+    if not profile_url and not participant_name:
+        print(
+            "Error: Provide --profile-url or --participant-name (one is required).",
+            file=sys.stderr,
+        )
+        sys.exit(2)
+
+    try:
+        config = _create_config(headless)
+        credentials = _get_credentials(cookie)
+        custom_user_agent = _get_user_agent(user_agent)
+
+        scraper = LinkedinSpider(
+            li_at_cookie=credentials.get("cookie"),
+            config=config,
+            user_agent=custom_user_agent,
+        )
+
+        success = scraper.send_message(
+            message=message,
+            profile_url=profile_url,
+            participant_name=participant_name,
+            dry_run=dry_run,
+        )
+
+        action = "Dry run" if dry_run else "Sent"
+        target = profile_url or participant_name
+        if success:
+            print(f"{action}: message to {target}")
+        else:
+            print(f"{action} failed for {target}", file=sys.stderr)
+            sys.exit(1)
+
+    except Exception as e:
+        print(f"Error: {_format_error(e)}", file=sys.stderr)
         sys.exit(1)
     finally:
         if "scraper" in locals():
