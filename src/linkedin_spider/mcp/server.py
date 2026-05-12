@@ -11,6 +11,7 @@ from typing import Annotated
 from cyclopts import App, Parameter
 from dotenv import load_dotenv
 from fastmcp import FastMCP
+from rich.console import Console as _RichConsole
 
 from linkedin_spider import LinkedinSpider, ScraperConfig
 
@@ -42,7 +43,13 @@ def _setup_logging() -> Path:
 _log_file = _setup_logging()
 logger = logging.getLogger(__name__)
 
-cli_app = App(name="linkedin-spider-mcp", help="LinkedIn Spider MCP Server")
+# Route cyclopts help/error output to stderr so it never corrupts the MCP
+# JSON-RPC stream on stdout (e.g. when invoked with the wrong arguments).
+cli_app = App(
+    name="linkedin-spider-mcp",
+    help="LinkedIn Spider MCP Server",
+    console=_RichConsole(file=sys.stderr),
+)
 mcp_app = FastMCP("linkedin-spider")
 
 _scraper_instance = None
