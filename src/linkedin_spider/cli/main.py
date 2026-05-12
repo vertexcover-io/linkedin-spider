@@ -11,6 +11,11 @@ from typing import Annotated
 
 from cyclopts import App, Parameter
 from dotenv import load_dotenv
+from selenium.common.exceptions import (
+    NoSuchElementException,
+    TimeoutException,
+    WebDriverException,
+)
 
 from linkedin_spider import LinkedinSpider, ScraperConfig
 
@@ -23,6 +28,20 @@ logging.basicConfig(
 )
 logging.getLogger("urllib3.connectionpool").setLevel(logging.ERROR)
 
+
+def _format_error(exc: BaseException) -> str:
+    """Render an exception cleanly, stripping selenium's chromedriver stacktrace noise."""
+    if isinstance(exc, TimeoutException):
+        return "Timed out waiting for a page element. The LinkedIn UI may have changed or the page failed to load."
+    if isinstance(exc, NoSuchElementException):
+        return "Expected page element not found. The LinkedIn UI may have changed."
+    if isinstance(exc, WebDriverException):
+        msg = (exc.msg or "").strip()
+        msg = msg.split("Stacktrace:", 1)[0].strip()
+        return msg or f"{type(exc).__name__}: browser session error"
+    return f"{type(exc).__name__}: {exc}" if str(exc) else type(exc).__name__
+
+
 app = App(
     name="linkedin-spider", help="LinkedIn Spider - Extract LinkedIn profile and company data."
 )
@@ -34,6 +53,31 @@ def search(
     max_results: Annotated[
         int, Parameter(name=["-n", "--max-results"], help="Maximum number of results")
     ] = 5,
+    location: Annotated[
+        str | None, Parameter(name=["-l", "--location"], help="Filter by location")
+    ] = None,
+    industry: Annotated[
+        str | None, Parameter(name=["-i", "--industry"], help="Filter by industry")
+    ] = None,
+    current_company: Annotated[
+        str | None,
+        Parameter(name=["--current-company"], help="Filter by current company"),
+    ] = None,
+    connections: Annotated[
+        str | None,
+        Parameter(
+            name=["--connections"],
+            help="Filter by connection degree (1st, 2nd, 3rd+)",
+        ),
+    ] = None,
+    connection_of: Annotated[
+        str | None,
+        Parameter(name=["--connection-of"], help="Filter by connections of a person"),
+    ] = None,
+    followers_of: Annotated[
+        str | None,
+        Parameter(name=["--followers-of"], help="Filter by followers of a person"),
+    ] = None,
     output: Annotated[
         str | None,
         Parameter(name=["-o", "--output"], help="Output file path (.json or .csv format)"),
@@ -58,7 +102,20 @@ def search(
             user_agent=custom_user_agent,
         )
 
-        results = scraper.search_profiles(query, max_results)
+        filters = {
+            k: v
+            for k, v in {
+                "location": location,
+                "industry": industry,
+                "current_company": current_company,
+                "connections": connections,
+                "connection_of": connection_of,
+                "followers_of": followers_of,
+            }.items()
+            if v
+        }
+
+        results = scraper.search_profiles(query, max_results, filters=filters or None)
 
         if output:
             _save_results(results, output)
@@ -67,7 +124,7 @@ def search(
             print(json.dumps(results, indent=2))
 
     except Exception as e:
-        print(f"Error: {e!s}", file=sys.stderr)
+        print(f"Error: {_format_error(e)}", file=sys.stderr)
         sys.exit(1)
     finally:
         if "scraper" in locals():
@@ -114,7 +171,7 @@ def profile(
             sys.exit(1)
 
     except Exception as e:
-        print(f"Error: {e!s}", file=sys.stderr)
+        print(f"Error: {_format_error(e)}", file=sys.stderr)
         sys.exit(1)
     finally:
         if "scraper" in locals():
@@ -161,7 +218,7 @@ def company(
             sys.exit(1)
 
     except Exception as e:
-        print(f"Error: {e!s}", file=sys.stderr)
+        print(f"Error: {_format_error(e)}", file=sys.stderr)
         sys.exit(1)
     finally:
         if "scraper" in locals():
@@ -206,7 +263,7 @@ def connections(
             print(json.dumps(results, indent=2))
 
     except Exception as e:
-        print(f"Error: {e!s}", file=sys.stderr)
+        print(f"Error: {_format_error(e)}", file=sys.stderr)
         sys.exit(1)
     finally:
         if "scraper" in locals():
@@ -306,7 +363,7 @@ def login(
         print("Login successful! Session cookies saved for future use.")
 
     except Exception as e:
-        print(f"Error: {e!s}", file=sys.stderr)
+        print(f"Error: {_format_error(e)}", file=sys.stderr)
         sys.exit(1)
     finally:
         if "scraper" in locals():
