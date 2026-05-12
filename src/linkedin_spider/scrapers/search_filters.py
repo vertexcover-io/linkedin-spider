@@ -1,15 +1,64 @@
+import json
 import logging
 import re
 import urllib.parse
-from typing import Any
+from dataclasses import dataclass
+from pathlib import Path
+from typing import Any, cast
 
 from selenium.common.exceptions import TimeoutException
 from selenium.webdriver.common.by import By
 from selenium.webdriver.remote.webelement import WebElement
-from selenium.webdriver.support import expected_conditions as EC
 from selenium.webdriver.support.wait import WebDriverWait
 
 logger = logging.getLogger(__name__)
+
+CACHE_DIR = Path.home() / ".linkedin_spider_profiles"
+
+CONNECTION_NETWORK_MAP = {
+    "1": "F",
+    "1st": "F",
+    "first": "F",
+    "f": "F",
+    "2": "S",
+    "2nd": "S",
+    "second": "S",
+    "s": "S",
+    "3": "O",
+    "3rd": "O",
+    "3rd+": "O",
+    "third": "O",
+    "o": "O",
+}
+
+
+@dataclass(frozen=True)
+class TypeaheadFacet:
+    """A search facet resolved by opening a pill, typing, and picking a suggestion."""
+
+    key: str
+    pill_aria_prefix: str
+    input_placeholder: str
+    url_param: str
+    cache_file: str
+
+
+TYPEAHEAD_FACETS: dict[str, TypeaheadFacet] = {
+    "location": TypeaheadFacet(
+        key="location",
+        pill_aria_prefix="Filter by Locations",
+        input_placeholder="Add a location",
+        url_param="geoUrn",
+        cache_file="geo_urn_cache.json",
+    ),
+    "current_company": TypeaheadFacet(
+        key="current_company",
+        pill_aria_prefix="Filter by Current companies",
+        input_placeholder="Add a company",
+        url_param="currentCompany",
+        cache_file="current_company_cache.json",
+    ),
+}
 
 
 class SearchFilterHandler:
@@ -17,7 +66,35 @@ class SearchFilterHandler:
         self.driver = driver
         self.wait = wait
         self.human_behavior = human_behavior
-        self.current_filters = {}
+        self.current_filters: dict[str, Any] = {}
+        self._caches: dict[str, dict[str, str]] = {}
+
+    def _load_cache(self, filename: str) -> dict[str, str]:
+        if filename in self._caches:
+            return self._caches[filename]
+        path = CACHE_DIR / filename
+        try:
+            self._caches[filename] = json.loads(path.read_text())
+        except (OSError, json.JSONDecodeError):
+            self._caches[filename] = {}
+        return self._caches[filename]
+
+    def _save_cache(self, filename: str) -> None:
+        if filename not in self._caches:
+            return
+        path = CACHE_DIR / filename
+        try:
+            path.parent.mkdir(parents=True, exist_ok=True)
+            path.write_text(json.dumps(self._caches[filename], indent=2, sort_keys=True))
+        except OSError:
+            logger.warning("Could not persist cache to %s", path)
+
+    def _build_search_url(self, query: str, extra_params: dict[str, str]) -> str:
+        params = {"keywords": query}
+        if extra_params:
+            params["origin"] = "FACETED_SEARCH"
+            params.update(extra_params)
+        return "https://www.linkedin.com/search/results/people/?" + urllib.parse.urlencode(params)
 
     def search_and_apply_filters(
         self,
@@ -29,376 +106,186 @@ class SearchFilterHandler:
         connection_of: str | None = None,
         followers_of: str | None = None,
     ) -> str:
-        base_search_url = (
-            f"https://www.linkedin.com/search/results/people/?keywords={urllib.parse.quote(query)}"
-        )
-        self.driver.get(base_search_url)
+        applied_filters: dict[str, Any] = {}
+        url_params: dict[str, str] = {}
 
-        self.human_behavior.delay(2, 4)
-        self.wait.until(
-            EC.presence_of_element_located(
-                (By.CSS_SELECTOR, "[data-view-name='search-filter-top-bar-select']")
-            )
-        )
+        # Resolve cache-hit fast-paths so we can navigate once with all params
+        facet_values = {"location": location, "current_company": current_company}
+        facets_needing_resolution: list[tuple[TypeaheadFacet, str]] = []
 
-        applied_filters = {}
-
-        if location:
-            location_filter = self._apply_location_filter(location)
-            if location_filter:
-                applied_filters["location"] = location_filter
-                self._click_show_results()
-
-        if industry:
-            industry_filter = self._apply_industry_filter(industry)
-            if industry_filter:
-                applied_filters["industry"] = industry_filter
-                self._click_show_results()
-
-        if current_company:
-            company_filter = self._apply_company_filter(current_company)
-            if company_filter:
-                applied_filters["current_company"] = company_filter
-                self._click_show_results()
+        for facet_key, value in facet_values.items():
+            if not value:
+                continue
+            facet = TYPEAHEAD_FACETS[facet_key]
+            cache = self._load_cache(facet.cache_file)
+            cached_urn = cache.get(value.lower())
+            if cached_urn:
+                logger.info("Using cached %s for '%s': %s", facet.url_param, value, cached_urn)
+                url_params[facet.url_param] = f'["{cached_urn}"]'
+                applied_filters[facet_key] = {
+                    "query": value,
+                    "urn": cached_urn,
+                    "cached": True,
+                }
+            else:
+                facets_needing_resolution.append((facet, value))
 
         if connections:
-            connection_filter = self._apply_connection_filter(connections)
-            if connection_filter:
-                applied_filters["connections"] = connection_filter
+            network_code = CONNECTION_NETWORK_MAP.get(connections.lower())
+            if network_code:
+                url_params["network"] = f'["{network_code}"]'
+                applied_filters["connections"] = {
+                    "value": connections,
+                    "network": network_code,
+                }
+            else:
+                logger.warning("Unknown connections value '%s'", connections)
+
+        self.driver.get(self._build_search_url(query, url_params))
+        self.human_behavior.delay(2, 4)
+
+        # Resolve uncached typeahead facets to discover their URNs. Each click flow
+        # rewrites the URL with just that facet's param — so we drop everything else
+        # and do a final consolidated navigate once all URNs are known.
+        for facet, value in facets_needing_resolution:
+            resolved = self._resolve_typeahead_facet(facet, value)
+            if not resolved:
+                continue
+            applied_filters[facet.key] = resolved
+            cache = self._load_cache(facet.cache_file)
+            cache[value.lower()] = resolved["urn"]
+            self._save_cache(facet.cache_file)
+            url_params[facet.url_param] = f'["{resolved["urn"]}"]'
+
+        if facets_needing_resolution and len(url_params) > 1:
+            # We applied multiple filters but the last click flow only kept one in the URL.
+            # Navigate once more with all params merged.
+            self.driver.get(self._build_search_url(query, url_params))
+            self.human_behavior.delay(2, 4)
 
         self.current_filters = applied_filters
-        return self.driver.current_url
+        return str(self.driver.current_url)
 
-    def _apply_location_filter(self, location_query: str) -> dict[str, Any] | None:
+    def _resolve_typeahead_facet(self, facet: TypeaheadFacet, query: str) -> dict[str, Any] | None:
         try:
-            location_button = self._find_filter_button_by_text("Location")
-
-            if location_button:
-                self.driver.execute_script("arguments[0].click();", location_button)
-                self.human_behavior.delay(1, 2)
-
-                dropdown_opened = self._wait_for_dropdown()
-                if dropdown_opened:
-                    return self._search_and_select_filter_option(location_query, "location")
-        except Exception:
-            logger.exception("Error applying location filter")
-            return None
-        else:
-            return None
-
-    def _apply_industry_filter(self, industry_query: str) -> dict[str, Any] | None:
-        try:
-            all_filters_btn = self._find_button_by_text("All filters")
-            if all_filters_btn:
-                self.driver.execute_script("arguments[0].click();", all_filters_btn)
-                self.human_behavior.delay(1, 3)
-
-                industry_section = self._find_filter_modal_section("Industry")
-                if industry_section:
-                    return self._search_in_modal_section(
-                        industry_section, industry_query, "industry"
-                    )
-        except Exception:
-            logger.exception("Error applying industry filter")
-            return None
-        else:
-            return None
-
-    def _apply_company_filter(self, company_query: str) -> dict[str, Any] | None:
-        try:
-            company_button = self._find_filter_button_by_text("Current companies")
-            if company_button:
-                self.driver.execute_script("arguments[0].click();", company_button)
-                self.human_behavior.delay(1, 2)
-
-                dropdown_opened = self._wait_for_dropdown()
-                if dropdown_opened:
-                    return self._search_and_select_filter_option(company_query, "company")
-        except Exception:
-            logger.exception("Error applying company filter")
-            return None
-        else:
-            return None
-
-    def _apply_connection_filter(self, connection_level: str) -> dict[str, Any] | None:
-        try:
-            connection_mapping = {
-                "1st": "1st",
-                "first": "1st",
-                "1": "1st",
-                "2nd": "2nd",
-                "second": "2nd",
-                "2": "2nd",
-                "3rd": "3rd+",
-                "third": "3rd+",
-                "3": "3rd+",
-            }
-
-            target_connection = connection_mapping.get(connection_level.lower())
-            if not target_connection:
+            pill = self._find_pill_button(facet.pill_aria_prefix)
+            if not pill:
+                logger.warning("%s pill not found", facet.pill_aria_prefix)
                 return None
-
-            connection_button = self._find_filter_button_by_text(target_connection)
-            if connection_button:
-                self.driver.execute_script("arguments[0].click();", connection_button)
-                self.human_behavior.delay(1, 2)
-                return {"level": target_connection, "param": self._extract_connection_param()}
-        except Exception:
-            logger.exception("Error applying connection filter")
-            return None
-        else:
-            return None
-
-    def _find_filter_button_by_text(self, text: str) -> WebElement | None:
-        try:
-            buttons = self.driver.find_elements(
-                By.CSS_SELECTOR, "[data-view-name='search-filter-top-bar-select']"
-            )
-            for button in buttons:
-                if text.lower() in button.text.lower():
-                    return button
-        except Exception:
-            return None
-        else:
-            return None
-
-    def _find_button_by_text(self, text: str) -> WebElement | None:
-        try:
-            buttons = self.driver.find_elements(By.TAG_NAME, "button")
-            for button in buttons:
-                if text.lower() in button.text.lower():
-                    return button
-        except Exception:
-            return None
-        else:
-            return None
-
-    def _wait_for_dropdown(self, timeout: int = 5) -> bool:
-        try:
-            WebDriverWait(self.driver, timeout).until(
-                EC.presence_of_element_located(
-                    (By.CSS_SELECTOR, "input[placeholder*='Add'], input[type='text']")
-                )
-            )
-        except TimeoutException:
-            return False
-        else:
-            return True
-
-    def _search_and_select_filter_option(
-        self, query: str, filter_type: str
-    ) -> dict[str, Any] | None:
-        try:
-            search_input = self.wait.until(
-                EC.element_to_be_clickable(
-                    (By.CSS_SELECTOR, "[data-view-name='search-filter-top-bar-menu-tyah']")
-                )
-            )
-            search_input.clear()
-            search_input.send_keys(query)
+            self.driver.execute_script("arguments[0].click();", pill)
             self.human_behavior.delay(1, 2)
 
-            suggestions = self._wait_for_suggestions()
-            if suggestions:
-                best_match_text = None
-                best_match_found = False
+            input_el = self._find_visible_input_by_placeholder(facet.input_placeholder)
+            if not input_el:
+                logger.warning("Input '%s' not found", facet.input_placeholder)
+                return None
+            input_el.click()
+            input_el.send_keys(query)
+            self.human_behavior.delay(1, 2)
 
-                for suggestion in suggestions:
-                    try:
-                        text_element = suggestion.find_element(By.CSS_SELECTOR, "p")
-                        suggestion_text = text_element.text.strip()
+            suggestion = self._wait_for_first_matching_option(query)
+            if not suggestion:
+                logger.warning("No %s suggestion matched '%s'", facet.key, query)
+                return None
+            selected_text = (suggestion.text or "").strip().split("\n")[0]
+            self.driver.execute_script("arguments[0].click();", suggestion)
+            self.human_behavior.delay(0.5, 1.5)
 
-                        if query.lower() in suggestion_text.lower():
-                            best_match_text = suggestion_text
-                            self.driver.execute_script("arguments[0].click();", suggestion)
-                            best_match_found = True
-                            break
-                    except Exception:
-                        logger.debug("Failed to process suggestion element")
-                        continue
+            show_results = self._find_popover_show_results()
+            if not show_results:
+                logger.warning("Show results not found for %s", facet.key)
+                return None
+            self.driver.execute_script("arguments[0].click();", show_results)
+            self.human_behavior.delay(3, 5)
 
-                if best_match_found:
-                    self.human_behavior.delay(1, 2)
-                    return {
-                        "query": query,
-                        "selected": best_match_text,
-                        "param": self._extract_filter_param(filter_type),
-                    }
+            urn = self._extract_url_param_id(facet.url_param)
+            if not urn:
+                logger.warning("Filter applied but %s missing from URL", facet.url_param)
+                return None
+            return {  # noqa: TRY300 - success path among many early-return None guards
+                "query": query,
+                "selected": selected_text,
+                "urn": urn,
+                "cached": False,
+            }
         except Exception:
-            logger.exception("Error in search and select")
-            return None
-        else:
+            logger.exception("Error resolving facet '%s'", facet.key)
             return None
 
-    def _wait_for_suggestions(self, timeout: int = 5) -> list[WebElement]:
+    def _find_pill_button(self, aria_label_prefix: str) -> WebElement | None:
+        """Find a filter-bar pill by its aria-label. Pills are <div> elements on current LinkedIn."""
         try:
-            WebDriverWait(self.driver, timeout).until(
-                EC.presence_of_element_located(
-                    (
-                        By.CSS_SELECTOR,
-                        "[data-view-name='search-filter-top-bar-menu-item'], [role='checkbox'], [role='option']",
-                    )
-                )
+            elements = self.driver.find_elements(
+                By.CSS_SELECTOR, f"[aria-label^='{aria_label_prefix}']"
             )
-            return self.driver.find_elements(
-                By.CSS_SELECTOR,
-                "[data-view-name='search-filter-top-bar-menu-item'], [role='checkbox'], [role='option']",
-            )
-        except TimeoutException:
-            return []
+            for el in elements:
+                if el.is_displayed():
+                    return cast("WebElement", el)
+        except Exception:
+            return None
+        return None
 
-    def _find_best_match(self, suggestions: list[WebElement], query: str) -> WebElement | None:
+    def _find_visible_input_by_placeholder(self, placeholder: str) -> WebElement | None:
+        try:
+            inputs = self.driver.find_elements(
+                By.CSS_SELECTOR, f"input[placeholder='{placeholder}']"
+            )
+            for inp in inputs:
+                if inp.is_displayed():
+                    return cast("WebElement", inp)
+        except Exception:
+            return None
+        return None
+
+    def _wait_for_first_matching_option(self, query: str, timeout: int = 5) -> WebElement | None:
         query_lower = query.lower()
-        best_match = None
-        highest_score = 0
 
-        for suggestion in suggestions:
-            try:
-                text_element = (
-                    suggestion.find_element(By.TAG_NAME, "p")
-                    if suggestion.find_elements(By.TAG_NAME, "p")
-                    else suggestion
-                )
-                text = text_element.text.lower()
-                if query_lower in text:
-                    score = len(query_lower) / len(text) if text else 0
-                    if score > highest_score:
-                        highest_score = score
-                        best_match = suggestion
-            except Exception:
-                logger.debug("Failed to process suggestion for best match")
-                continue
+        def find_match(_driver: Any) -> WebElement | None:
+            options = _driver.find_elements(By.CSS_SELECTOR, "[role='option']")
+            for opt in options:
+                if not opt.is_displayed():
+                    continue
+                text = (opt.text or "").strip().lower()
+                if text.startswith(query_lower) or query_lower in text:
+                    return cast("WebElement", opt)
+            return None
 
-        return best_match if best_match else (suggestions[0] if suggestions else None)
-
-    def _find_filter_modal_section(self, section_name: str) -> WebElement | None:
         try:
-            headings = self.driver.find_elements(
-                By.CSS_SELECTOR, "h3, h2, legend, .filter-section-title"
+            return WebDriverWait(self.driver, timeout).until(find_match)
+        except TimeoutException:
+            return None
+
+    def _find_popover_show_results(self) -> WebElement | None:
+        try:
+            candidates = self.driver.find_elements(
+                By.XPATH,
+                "//*[self::a or self::button][normalize-space(.)='Show results']",
             )
-            for heading in headings:
-                if section_name.lower() in heading.text.lower():
-                    return heading.find_element(By.XPATH, "./following-sibling::*[1]")
+            visible = [c for c in candidates if c.is_displayed()]
+            if not visible:
+                return None
+            # The popover's Show results is the last-rendered visible one (the side
+            # complementary panel renders earlier in the DOM).
+            return cast("WebElement", visible[-1])
         except Exception:
             return None
-        else:
-            return None
 
-    def _search_in_modal_section(
-        self, section: WebElement, query: str, filter_type: str
-    ) -> dict[str, Any] | None:
+    def _extract_url_param_id(self, param_name: str) -> str | None:
         try:
-            search_input = section.find_element(By.CSS_SELECTOR, "input[type='text']")
-            search_input.clear()
-            search_input.send_keys(query)
-            self.human_behavior.delay(1, 2)
-
-            options = section.find_elements(By.CSS_SELECTOR, "[role='checkbox'], .option-item")
-            best_match = self._find_best_match(options, query)
-
-            if best_match:
-                self.driver.execute_script("arguments[0].click();", best_match)
-                self.human_behavior.delay(1, 2)
-
-                apply_btn = self.driver.find_element(
-                    By.CSS_SELECTOR, "button[data-control-name='all_filters_apply']"
-                )
-                if apply_btn:
-                    self.driver.execute_script("arguments[0].click();", apply_btn)
-                    self.human_behavior.delay(2, 3)
-                    self.wait.until(
-                        EC.presence_of_element_located(
-                            (By.CSS_SELECTOR, "[data-view-name='search-filter-top-bar-select']")
-                        )
-                    )
-
-                return {
-                    "query": query,
-                    "selected": best_match.text,
-                    "param": self._extract_filter_param(filter_type),
-                }
+            current = self.driver.current_url
+            params = urllib.parse.parse_qs(urllib.parse.urlparse(current).query)
+            raw = params.get(param_name, [None])[0]
+            if not raw:
+                return None
+            match = re.search(r"\d+", raw)
+            return match.group(0) if match else None
         except Exception:
-            logger.exception("Error in modal section search")
             return None
-        else:
-            return None
-
-    def _extract_filter_param(self, filter_type: str) -> dict[str, str]:
-        current_url = self.driver.current_url
-        parsed_url = urllib.parse.urlparse(current_url)
-        params = urllib.parse.parse_qs(parsed_url.query)
-
-        param_map = {
-            "location": ["geoUrn", "location"],
-            "industry": ["industryUrn", "industry"],
-            "company": ["currentCompany", "companyUrn"],
-            "connections": ["network", "connectionDepth"],
-        }
-
-        for param_key in param_map.get(filter_type, []):
-            if param_key in params:
-                return {param_key: params[param_key][0]}
-
-        return {}
-
-    def _extract_connection_param(self) -> dict[str, str]:
-        current_url = self.driver.current_url
-        if "network=" in current_url:
-            network_match = re.search(r"network=([^&]+)", current_url)
-            if network_match:
-                return {"network": network_match.group(1)}
-        return {}
 
     def get_applied_filters(self) -> dict[str, Any]:
         return self.current_filters
 
-    def _click_show_results(self) -> bool:
-        try:
-            selectors = [
-                "[data-view-name='search-filter-top-bar-menu-submit']",
-                "button[componentkey*='submit']",
-                "button:contains('Show results')",
-                "button[type='button']:last-child",
-            ]
-
-            for selector in selectors:
-                try:
-                    if "contains" in selector:
-                        show_results_btn = self.driver.execute_script(
-                            "return Array.from(document.querySelectorAll('button')).find(btn => btn.textContent.includes('Show results'));"
-                        )
-                    else:
-                        show_results_btn = self.wait.until(
-                            EC.element_to_be_clickable((By.CSS_SELECTOR, selector))
-                        )
-
-                    if show_results_btn:
-                        self.driver.execute_script("arguments[0].click();", show_results_btn)
-                        self.human_behavior.delay(2, 4)
-                        self.wait.until(
-                            EC.presence_of_element_located(
-                                (By.CSS_SELECTOR, "[data-view-name='search-filter-top-bar-select']")
-                            )
-                        )
-                        return True
-                except Exception:
-                    logger.debug("Failed to click show results with selector")
-                    continue
-        except Exception:
-            logger.exception("Error clicking show results")
-            return False
-        else:
-            return False
-
     def reset_filters(self) -> bool:
-        try:
-            reset_btn = self._find_button_by_text("Reset")
-            if reset_btn:
-                self.driver.execute_script("arguments[0].click();", reset_btn)
-                self.human_behavior.delay(1, 2)
-                self.current_filters = {}
-                return True
-        except Exception:
-            return False
-        else:
-            return False
+        """Clear in-memory applied filters. Caller is responsible for navigating away."""
+        self.current_filters = {}
+        return True

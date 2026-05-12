@@ -7,7 +7,7 @@ Parametrized where multiple inputs exercise different code paths.
 
 from __future__ import annotations
 
-from typing import Any
+from typing import Any, cast
 
 import pytest
 
@@ -98,10 +98,11 @@ def test_scrape_company_invalid_url(spider: LinkedinSpider) -> None:
     ("query", "max_results", "filters"),
     [
         ("software engineer", 3, None),
-        ("data scientist", 2, {"location": "San Francisco"}),
-        ("product manager", 2, {"industry": "Technology, Information and Internet"}),
+        ("AI Growth", 2, {"location": "Surat"}),
+        ("software engineer", 2, {"current_company": "Google"}),
+        ("data scientist", 2, {"connections": "1"}),
     ],
-    ids=["no-filter", "location-filter", "industry-filter"],
+    ids=["no-filter", "location-filter", "current-company-filter", "connections-1st"],
 )
 def test_search_profiles(
     spider: LinkedinSpider,
@@ -118,6 +119,71 @@ def test_search_profiles(
     first = results[0]
     expected_keys = {"name", "headline", "location", "profile_url"}
     assert expected_keys.issubset(first.keys()), f"Missing keys: {expected_keys - first.keys()}"
+
+
+# ── search filter application ─────────────────────────────────────────────
+
+
+def _applied_filters(spider: LinkedinSpider) -> dict[str, Any]:
+    scraper = spider.search_scraper
+    assert scraper is not None, "search_scraper not initialized"
+    return cast("dict[str, Any]", scraper.filter_handler.get_applied_filters())  # type: ignore[unreachable]
+
+
+def _current_url(spider: LinkedinSpider) -> str:
+    driver = spider.driver_manager.driver
+    assert driver is not None, "driver not initialized"
+    return str(driver.current_url)
+
+
+@pytest.mark.integration
+def test_search_location_filter_applies(spider: LinkedinSpider) -> None:
+    """Location filter must produce a geoUrn in the final URL and surface in applied_filters."""
+    spider.search_profiles("AI Growth", max_results=2, filters={"location": "Surat"})
+
+    applied = _applied_filters(spider)
+    assert "location" in applied, f"Location filter not recorded; got {applied}"
+    assert applied["location"].get("urn"), "Location filter did not resolve to a urn"
+
+    current_url = _current_url(spider)
+    assert "geoUrn=" in current_url, f"geoUrn missing from final URL: {current_url}"
+
+
+@pytest.mark.integration
+def test_search_connections_filter_applies(spider: LinkedinSpider) -> None:
+    """Connections=1st must add network=[\"F\"] to the URL."""
+    spider.search_profiles("data scientist", max_results=2, filters={"connections": "1"})
+
+    applied = _applied_filters(spider)
+    assert applied.get("connections", {}).get("network") == "F"
+
+    current_url = _current_url(spider)
+    assert "network=" in current_url, f"network param missing from URL: {current_url}"
+
+
+@pytest.mark.integration
+def test_search_current_company_filter_applies(spider: LinkedinSpider) -> None:
+    """Current company filter must produce a currentCompany URN."""
+    spider.search_profiles(
+        "software engineer", max_results=2, filters={"current_company": "Google"}
+    )
+
+    applied = _applied_filters(spider)
+    assert "current_company" in applied, f"Current company filter not recorded; got {applied}"
+    assert applied["current_company"].get("urn"), "currentCompany did not resolve"
+
+    current_url = _current_url(spider)
+    assert "currentCompany=" in current_url, f"currentCompany missing from URL: {current_url}"
+
+
+@pytest.mark.integration
+def test_search_location_geo_urn_cache_persists(spider: LinkedinSpider) -> None:
+    """Second call with same location should hit cache (cached=True in applied filters)."""
+    spider.search_profiles("AI Growth", max_results=2, filters={"location": "Surat"})
+    spider.search_profiles("AI", max_results=2, filters={"location": "Surat"})
+
+    applied = _applied_filters(spider)
+    assert applied["location"].get("cached") is True, "Second call should have hit the geoUrn cache"
 
 
 # ── search posts ──────────────────────────────────────────────────────────
